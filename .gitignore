@@ -3,3 +3,9 @@
 /build
 /Bender.lock
 /Bender.local
+*.o
+/tb/core/cobj_dir
+/tb/core/testbench_verilator
+*.vcd
+*.elf
+*.hex

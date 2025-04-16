@@ -12,6 +12,8 @@
 #include <cstdint>
 #include <cerrno>
 
+#define VCD_TRACE 1
+
 void dump_memory();
 double sc_time_stamp();
 

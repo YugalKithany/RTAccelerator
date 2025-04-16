@@ -49,7 +49,7 @@ SIMV_FLAGS              =
 
 # verilator configuration
 VERILATOR		= verilator
-VERI_FLAGS              =
+VERI_FLAGS              = 
 VERI_COMPILE_FLAGS      =
 VERI_TRACE              =
 VERI_DIR                = cobj_dir
@@ -69,13 +69,25 @@ RTLSRC_PKG		:= fpnew/src/fpnew_pkg.sv \
 				riscv_tracer_defines.sv)
 RTLSRC			:= $(filter-out $(RTLSRC_HOME)/rtl/riscv_register_file_latch.sv,\
 				$(wildcard $(RTLSRC_HOME)/rtl/*.sv))
+
+RTLSRC_ADDITIONAL_DIRS := $(RTLSRC_HOME)/rtl/fpnew/src \
+                          $(RTLSRC_HOME)/rtl/fpnew/common_cells/src \
+						  $(RTLSRC_HOME)/rtl/fpnew/common_cells/src/common_cells/src \
+						  $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/include \
+                          $(RTLSRC_HOME)/rtl/fpnew/fpu_div_sqrt_mvp/hdl
+
+RTLSRC_ADDITIONAL := $(foreach dir, $(RTLSRC_ADDITIONAL_DIRS), \
+                      $(wildcard $(dir)/*.sv))
+
+RTLSRC := $(RTLSRC) $(RTLSRC_ADDITIONAL)
+
 # TODO: clean this up
 RTLSRC_VLOG_TB_TOP	:= $(basename $(notdir $(RTLSRC_TB_TOP)))
 RTLSRC_VOPT_TB_TOP	:= $(addsuffix _vopt, $(RTLSRC_VLOG_TB_TOP))
 
 # riscv toolchain install path
-RISCV                    ?= ~/.riscv
-RISCV_EXE_PREFIX         = $(RISCV)/bin/riscv32-unknown-elf-
+RISCV                    ?= /opt/riscv
+RISCV_EXE_PREFIX         = $(RISCV)/bin/riscv64-unknown-elf-
 
 # firmware vars
 FIRMWARE                 = firmware/
@@ -153,9 +165,9 @@ endif
 verilate: testbench_verilator
 
 testbench_verilator: $(RTLSRC_VERI_TB) $(RTLSRC_PKG) $(RTLSRC)
-	$(VERILATOR) --cc --sv --exe \
+	$(VERILATOR) --cc --sv --exe --trace\
 		$(VERI_TRACE) \
-		--Wno-lint --Wno-UNOPTFLAT \
+		--Wno-lint --Wno-UNOPTFLAT --Wno-COMBDLY --Wno-ENUMVALUE --Wno-WIDTHCONCAT \
 		--Wno-MODDUP +incdir+$(RTLSRC_INCDIR) --top-module \
 		tb_top_verilator $(RTLSRC_VERI_TB) $(RTLSRC_PKG) $(RTLSRC) \
 		tb_top_verilator.cpp --Mdir $(VERI_DIR) \
@@ -203,15 +215,20 @@ tb-clean:
 # This is an example for running a hello world in the testbench
 # We link with our custom crt0.s and syscalls.c against newlib so that we can
 # use the c standard library
+
+RISCV_CONFIG = -march=rv32imac_zicsr -mabi=ilp32
+
 custom/hello_world.elf: custom/hello_world.c
-	$(RISCV_EXE_PREFIX)gcc -march=rv32imc -o $@ -w -Os -g -nostdlib \
+	$(RISCV_EXE_PREFIX)gcc $(RISCV_CONFIG) -o $@ -w -Os -g -nostdlib \
 		-T custom/link.ld  \
 		-static \
 		custom/crt0.S \
-		$^ custom/syscalls.c custom/vectors.S \
+		$^ custom/syscalls.c custom/vectors.S custom/stats.c custom/print.c\
 		-I $(RISCV)/riscv32-unknown-elf/include \
 		-L $(RISCV)/riscv32-unknown-elf/lib \
-		-lc -lm -lgcc
+		-lc -lm -lgcc \
+		-Wl,--no-warn-rwx-segment \
+		-O0 
 custom-clean:
 	rm -rf custom/hello_world.elf custom/hello_world.hex
 
@@ -219,6 +236,22 @@ custom-clean:
 custom-vsim-run: vsim-all custom/hello_world.hex
 custom-vsim-run: ALL_VSIM_FLAGS += "+firmware=custom/hello_world.hex"
 custom-vsim-run: vsim-run
+
+custom/hello_world.hex: custom/hello_world.elf
+	$(RISCV_EXE_PREFIX)objcopy -O verilog $< $@
+
+custom/hello_world.S: custom/hello_world.c
+	$(RISCV_EXE_PREFIX)gcc $(RISCV_CONFIG) -S -Os -g -nostdlib \
+		-I /opt/riscv/riscv32-unknown-elf/include \
+		custom/hello_world.c \
+		-o custom/hello_world.S
+
+.PHONY: custom-veri-run
+custom-veri-run: verilate custom/hello_world.hex
+	./testbench_verilator $(VERI_FLAGS) \
+		"+firmware=custom/hello_world.hex"
+
+
 
 # compile and dump picorv firmware
 firmware/firmware.elf: $(FIRMWARE_OBJS) $(FIRMWARE_TEST_OBJS) $(COMPLIANCE_TEST_OBJS) \
@@ -228,15 +261,15 @@ firmware/firmware.elf: $(FIRMWARE_OBJS) $(FIRMWARE_TEST_OBJS) $(COMPLIANCE_TEST_
 		$(FIRMWARE_OBJS) $(FIRMWARE_TEST_OBJS) $(COMPLIANCE_TEST_OBJS) -lgcc
 
 firmware/start.o: firmware/start.S
-	$(RISCV_EXE_PREFIX)gcc -c -march=rv32imc -g -o $@ $<
+	$(RISCV_EXE_PREFIX)gcc -c -march=rv32imfc -g -o $@ $<
 
 firmware/%.o: firmware/%.c
-	$(RISCV_EXE_PREFIX)gcc -c -march=rv32ic -g -Os --std=c99 -Wall \
+	$(RISCV_EXE_PREFIX)gcc -c -march=rv32imfc -g -Os --std=c99 -Wall \
 		-ffreestanding -nostdlib -o $@ $<
 
 riscv_tests/%.o: riscv_tests/%.S riscv_tests/riscv_test.h \
 			riscv_tests/test_macros.h
-	$(RISCV_EXE_PREFIX)gcc -c -march=rv32im -g -o $@ \
+	$(RISCV_EXE_PREFIX)gcc -c -march=rv32imfc -g -o $@ \
 		-DTEST_FUNC_NAME=$(notdir $(basename $<)) \
 		-DTEST_FUNC_TXT='"$(notdir $(basename $<))"' \
 		-DTEST_FUNC_RET=$(notdir $(basename $<))_ret $<
@@ -245,7 +278,7 @@ riscv_tests/%.o: riscv_tests/%.S riscv_tests/riscv_test.h \
 riscv_compliance_tests/%.o: riscv_compliance_tests/%.S riscv_compliance_tests/riscv_test.h \
 			riscv_compliance_tests/test_macros.h riscv_compliance_tests/compliance_io.h \
 			riscv_compliance_tests/compliance_test.h
-	$(RISCV_EXE_PREFIX)gcc -c -march=rv32im -g -o $@ \
+	$(RISCV_EXE_PREFIX)gcc -c -march=rv32imfc -g -o $@ \
 		-DTEST_FUNC_NAME=$(notdir $(subst -,_,$(basename $<))) \
 		-DTEST_FUNC_TXT='"$(notdir $(subst -,_,$(basename $<)))"' \
 		-DTEST_FUNC_RET=$(notdir $(subst -,_,$(basename $<)))_ret $<
