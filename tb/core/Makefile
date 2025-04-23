@@ -164,7 +164,7 @@ verilate: testbench_verilator
 testbench_verilator: $(RTLSRC_VERI_TB) $(RTLSRC_PKG) $(RTLSRC)
 	$(VERILATOR) --cc --sv --exe --trace\
 		$(VERI_TRACE) \
-		--Wno-lint --Wno-UNOPTFLAT --Wno-COMBDLY --Wno-ENUMVALUE --Wno-WIDTHCONCAT \
+		--Wno-lint --Wno-UNOPTFLAT --Wno-COMBDLY --Wno-ENUMVALUE --Wno-WIDTHCONCAT --Wno-BLKANDNBLK \
 		--Wno-MODDUP +incdir+$(RTLSRC_INCDIR) --top-module \
 		tb_top_verilator $(RTLSRC_VERI_TB) $(RTLSRC_PKG) $(RTLSRC) \
 		tb_top_verilator.cpp --Mdir $(VERI_DIR) \
@@ -225,7 +225,7 @@ tb-clean:
 # VER_SRCS  := $(PKG_SRCS) $(HDL_SRCS) $(VER_HVL) $(SRAM_SRCS) $(DW_IP)
 # VER_EX    := $(PWD)/../hvl/verilator/verilator_harness.cpp
 
-RISCV_CONFIG = -march=rv32imac_zicsr -mabi=ilp32
+RISCV_CONFIG = -march=rv32imfc_zicsr -mabi=ilp32
 
 custom/hello_world.elf: custom/hello_world.c
 	$(RISCV_EXE_PREFIX)gcc $(RISCV_CONFIG) -o $@ -w -Os -g -nostdlib \
