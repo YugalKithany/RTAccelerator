@@ -64,14 +64,15 @@ RTLSRC_TB		:= $(filter-out riscv_tb_pkg.sv tb_top_verilator.sv,\
 RTLSRC_VERI_TB          := $(filter-out tb_top.sv, $(wildcard *.sv))
 RTLSRC_INCDIR           := $(RTLSRC_HOME)/rtl/include \
 							-I$(PWD)/fpnew/src/common_cells/include
-RTLSRC_PKG		:= $(PWD)/fpnew/src/fpnew_pkg.sv \
-				$(addprefix $(RTLSRC_HOME)/rtl/include/,\
-				apu_core_package.sv riscv_defines.sv \
-				riscv_tracer_defines.sv)
-RTLSRC			:= $(filter-out $(RTLSRC_HOME)/rtl/riscv_register_file_latch.sv,\
-				$(wildcard $(RTLSRC_HOME)/rtl/*.sv)) \
-				$(filter-out $(PWD)/fpnew/src/fpnew_pkg.sv,\
-				$(shell find $(PWD)/fpnew -type f -name '*.sv'))
+RTLSRC_PKG := $(shell find $(PWD)/fpnew -type f -name '*.sv' | grep -Ei 'pkg|defs') \
+              $(addprefix $(RTLSRC_HOME)/rtl/include/,\
+              apu_core_package.sv riscv_defines.sv riscv_tracer_defines.sv)
+
+RTLSRC := $(filter-out $(RTLSRC_HOME)/rtl/riscv_register_file_latch.sv,\
+           $(wildcard $(RTLSRC_HOME)/rtl/*.sv)) \
+          $(filter-out $(PWD)/fpnew/src/fpnew_pkg.sv,\
+           $(shell find $(PWD)/fpnew -type f -name '*.sv' \
+                   ! -path "$(PWD)/fpnew/src/common_cells/test/*"))
 
 # $(shell find $(PWD)/fpnew -type f -name '*.sv') 
 # $(shell find $(PWD)/fpnew -type f -name '*.svh') 
