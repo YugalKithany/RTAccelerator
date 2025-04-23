@@ -68,18 +68,9 @@ RTLSRC_PKG		:= fpnew/src/fpnew_pkg.sv \
 				apu_core_package.sv riscv_defines.sv \
 				riscv_tracer_defines.sv)
 RTLSRC			:= $(filter-out $(RTLSRC_HOME)/rtl/riscv_register_file_latch.sv,\
-				$(wildcard $(RTLSRC_HOME)/rtl/*.sv))
+				$(wildcard $(RTLSRC_HOME)/rtl/*.sv)) \
+				$(shell find $(PWD)/../fpnew -name '*.sv')
 
-RTLSRC_ADDITIONAL_DIRS := $(RTLSRC_HOME)/rtl/fpnew/src \
-                          $(RTLSRC_HOME)/rtl/fpnew/common_cells/src \
-						  $(RTLSRC_HOME)/rtl/fpnew/common_cells/src/common_cells/src \
-						  $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/include \
-                          $(RTLSRC_HOME)/rtl/fpnew/fpu_div_sqrt_mvp/hdl
-
-RTLSRC_ADDITIONAL := $(foreach dir, $(RTLSRC_ADDITIONAL_DIRS), \
-                      $(wildcard $(dir)/*.sv))
-
-RTLSRC := $(RTLSRC) $(RTLSRC_ADDITIONAL)
 
 # TODO: clean this up
 RTLSRC_VLOG_TB_TOP	:= $(basename $(notdir $(RTLSRC_TB_TOP)))
@@ -216,6 +207,18 @@ tb-clean:
 # We link with our custom crt0.s and syscalls.c against newlib so that we can
 # use the c standard library
 
+# PKG_SRCS  := $(PWD)/../pkg/types.sv
+# HDL_SRCS  := $(shell find $(PWD)/../hdl -name '*.sv')
+# COMM_HVL  := $(shell find $(PWD)/../hvl/common -name '*.sv' -o -name '*.v')
+# VCS_HVL   := $(COMM_HVL) $(shell find $(PWD)/../hvl/vcs -name '*.sv' -o -name '*.v')
+# VER_HVL   := $(COMM_HVL) $(shell find $(PWD)/../hvl/verilator -name '*.sv' -o -name '*.v')
+# SRAM_SRCS := $(shell find $(PWD)/../sram/output -name '*.v')
+# HDRS      := $(shell find $(PWD)/../hvl -name '*.svh') $(PWD)/../hvl/common/rvfi_reference.json
+# DW_IP     := $(shell python3 $(PWD)/../bin/get_options.py dw_ip)
+# VCS_SRCS  := $(PKG_SRCS) $(HDL_SRCS) $(VCS_HVL) $(SRAM_SRCS) $(DW_IP)
+# VER_SRCS  := $(PKG_SRCS) $(HDL_SRCS) $(VER_HVL) $(SRAM_SRCS) $(DW_IP)
+# VER_EX    := $(PWD)/../hvl/verilator/verilator_harness.cpp
+
 RISCV_CONFIG = -march=rv32imac_zicsr -mabi=ilp32
 
 custom/hello_world.elf: custom/hello_world.c
@@ -229,6 +232,7 @@ custom/hello_world.elf: custom/hello_world.c
 		-lc -lm -lgcc \
 		-Wl,--no-warn-rwx-segment \
 		-O0 
+		
 custom-clean:
 	rm -rf custom/hello_world.elf custom/hello_world.hex
 
@@ -248,7 +252,7 @@ custom/hello_world.S: custom/hello_world.c
 
 .PHONY: custom-veri-run
 custom-veri-run: verilate custom/hello_world.hex
-	./testbench_verilator $(VERI_FLAGS) \
+	time ./testbench_verilator $(VERI_FLAGS) \
 		"+firmware=custom/hello_world.hex"
 
 
