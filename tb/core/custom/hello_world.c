@@ -79,6 +79,8 @@ int main() {
 
     stats();
 
+    printf("fuck");
+
     volatile int *tohost = (int *) TOHOST;
     *tohost = 123456789;
 

@@ -162,7 +162,7 @@ endif
 verilate: testbench_verilator
 
 testbench_verilator: $(RTLSRC_VERI_TB) $(RTLSRC_PKG) $(RTLSRC)
-	$(VERILATOR) --cc --sv --exe --trace\
+	$(VERILATOR) --cc --sv --exe --trace -Wall\
 		$(VERI_TRACE) \
 		--Wno-lint --Wno-UNOPTFLAT --Wno-COMBDLY --Wno-ENUMVALUE --Wno-WIDTHCONCAT --Wno-BLKANDNBLK \
 		--Wno-MODDUP +incdir+$(RTLSRC_INCDIR) --top-module \
@@ -225,10 +225,10 @@ tb-clean:
 # VER_SRCS  := $(PKG_SRCS) $(HDL_SRCS) $(VER_HVL) $(SRAM_SRCS) $(DW_IP)
 # VER_EX    := $(PWD)/../hvl/verilator/verilator_harness.cpp
 
-RISCV_CONFIG = -march=rv32imfc_zicsr -mabi=ilp32
+RISCV_CONFIG = -march=rv32imf_zicsr -mabi=ilp32
 
 custom/hello_world.elf: custom/hello_world.c
-	$(RISCV_EXE_PREFIX)gcc $(RISCV_CONFIG) -o $@ -w -Os -g -nostdlib \
+	$(RISCV_EXE_PREFIX)gcc $(RISCV_CONFIG) -o $@ -w -g -nostdlib \
 		-T custom/link.ld  \
 		-static \
 		custom/crt0.S \
@@ -251,7 +251,7 @@ custom/hello_world.hex: custom/hello_world.elf
 	$(RISCV_EXE_PREFIX)objcopy -O verilog $< $@
 
 custom/hello_world.S: custom/hello_world.c
-	$(RISCV_EXE_PREFIX)gcc $(RISCV_CONFIG) -S -Os -g -nostdlib \
+	$(RISCV_EXE_PREFIX)gcc $(RISCV_CONFIG) -S -g -nostdlib \
 		-I /opt/riscv/riscv32-unknown-elf/include \
 		custom/hello_world.c \
 		-o custom/hello_world.S
