@@ -1,27 +1,26 @@
+//`timescale 1ns/1ps
+
 module tb_plane_ray_int;
 
     // Clock and reset
     logic clk;
     logic rst_n;
 
-    // DUT I/O
-    logic start;
-    logic [31:0] ray_p0 [2:0];
-    logic [31:0] ray_dir [2:0];
-    logic [31:0] plane_p0 [2:0];
-    logic [31:0] plane_nrm [2:0];
+    // DUT Inputs
+    logic [31:0] fprti_regs [0:15];
+    logic input_valid;
 
-    logic busy;
-    logic valid;
-    logic [31:0] t;
+    // DUT Outputs
+    logic [31:0] return_value;
+    logic output_valid;
 
-    // Clock generation
+    // Clock generation: 10ns period
     initial begin
         clk = 0;
-        forever #5 clk = ~clk; // 10ns period
+        forever #5 clk = ~clk;
     end
 
-    // Reset sequence
+    // Reset generation
     initial begin
         rst_n = 0;
         #20;
@@ -30,7 +29,12 @@ module tb_plane_ray_int;
 
     // DUT instantiation
     plane_ray_int dut (
-        .*
+        .clk(clk),
+        .rst_n(rst_n),
+        .fprti_regs_i(fprti_regs),
+        .input_valid_i(input_valid),
+        .return_o(return_value),
+        .output_valid_o(output_valid)
     );
 
     // VCD dump
@@ -39,46 +43,53 @@ module tb_plane_ray_int;
         $dumpvars(0, tb_plane_ray_int);
     end
 
-    // Test stimulus
+    // Test Stimulus
     initial begin
+        // Initialization
+        input_valid = 0;
+        for (int i = 0; i < 16; i++) begin
+            fprti_regs[i] = 32'h0;
+        end
+
         // Wait for reset
         @(posedge rst_n);
-
-        // Initialize inputs
-        start = 0;
-        ray_p0[0] = 32'h00000000; // 0.0f
-        ray_p0[1] = 32'h00000000;
-        ray_p0[2] = 32'h00000000;
-
-        ray_dir[0] = 32'h3f800000; // 1.0f
-        ray_dir[1] = 32'h00000000;
-        ray_dir[2] = 32'h00000000;
-
-        plane_p0[0] = 32'h3f800000; // 1.0f
-        plane_p0[1] = 32'h00000000;
-        plane_p0[2] = 32'h00000000;
-
-        plane_nrm[0] = 32'h3f800000; // 1.0f
-        plane_nrm[1] = 32'h00000000;
-        plane_nrm[2] = 32'h00000000;
-
-        // Small wait
         #10;
-        
-        // Start the computation
-        start = 1;
+
+        // Apply sample input
+        fprti_regs[0]  = 32'h00000000; // p0.x = 0.0
+        fprti_regs[1]  = 32'h00000000; // p0.y = 0.0
+        fprti_regs[2]  = 32'h00000000; // p0.z = 0.0
+
+        fprti_regs[3]  = 32'h3f800000; // p1.x = 1.0
+        fprti_regs[4]  = 32'h00000000; // p1.y = 0.0
+        fprti_regs[5]  = 32'h00000000; // p1.z = 0.0
+
+        fprti_regs[6]  = 32'h00000000; // p2.x = 0.0
+        fprti_regs[7]  = 32'h3f800000; // p2.y = 1.0
+        fprti_regs[8]  = 32'h00000000; // p2.z = 0.0
+
+        fprti_regs[9]  = 32'h3f000000; // r0.x = 0.5
+        fprti_regs[10] = 32'h3f000000; // r0.y = 0.5
+        fprti_regs[11] = 32'h00000000; // r0.z = 0.0
+
+        fprti_regs[12] = 32'h00000000; // rd.x = 0.0
+        fprti_regs[13] = 32'h00000000; // rd.y = 0.0
+        fprti_regs[14] = 32'h3f800000; // rd.z = 1.0
+
+        // Give input
+        input_valid = 1;
         #10;
-        start = 0;
+        input_valid = 0;
 
-        // Wait for computation to complete
-        wait (valid);
+        // Wait for output
+        wait (output_valid == 1);
+        #5;
 
-        // Display the output
-        $display("Intersection t (hex) = %h", t);
-        //$display("Intersection t (float) = %0f", $bitstoshortreal(t)); // <-- Only use if Verilator supports it, otherwise comment
+        // Display result
+        $display("Return Value (Hex) = %h", return_value);
 
-        // Finish simulation
-        #20;
+        // End simulation
+        #50;
         $finish;
     end
 

@@ -2,64 +2,85 @@ import apu_core_package::*;
 import riscv_defines::*;
 import fpnew_pkg::*;
 
+typedef logic [4:0] tag_t;
+
 // -----------
 // FPU Config
 // -----------
-// Features
+
+// --- 1) build the small masks with flat patterns
+localparam fpu_fmt_mask_t FPMASK_SINGLE = '{ 
+    FP32    : 1'b1,
+    default : 1'b0
+};
+
+// --- 2) now use that in your features struct (no nesting!)
 localparam fpu_features_t Features = '{
-    Width          : 32,            //Single Precision (F Extension) Only
-    EnableVectors  : 1'b0,          //No need for vectorial support on thinner dtypes
-    EnableNanBox   : 1'b0,          //No need for NaN Boxed  inputs
-    FpFmtMask      : '{
-        FP32      : 1'b1,           //Set the Single-Precision bit to high
-        default   : 1'b0            //Set others to 0
-    },
-    IntFmtMask     : '0             // no need for FP<->int conversions
+    Width          : 32,            // Single Precision
+    EnableVectors  : 1'b0,
+    EnableNanBox   : 1'b0,
+    FpFmtMask      : FPMASK_SINGLE,
+    IntFmtMask     : '0
 };
 
 //---------------------------------------------------------------------
 // Implementation tables
 //---------------------------------------------------------------------
-// 6 FMAs  –> 6 separate fpnew_top instances, each with PARALLEL ADDMUL
-fmt_unit_types_t fp32_fma  = '{FP32: PARALLEL, default: DISABLED};
-fmt_unit_types_t fp32_off  = '{default: DISABLED};
-fmt_unit_types_t fp32_div  = '{FP32: MERGED,   default: DISABLED};
 
-opgrp_fmt_unit_types_t UnitTypesFMA = '{
-      ADDMUL  : fp32_fma,   // <— only ADD/MUL/FMA enabled
-      default : fp32_off
+// reuse your existing flat-format-unit definitions
+localparam fmt_unit_types_t fp32_fma  = '{FP32: PARALLEL, default: DISABLED};
+localparam fmt_unit_types_t fp32_off  = '{default: DISABLED};
+localparam fmt_unit_types_t fp32_div  = '{FP32: MERGED,   default: DISABLED};
+
+localparam opgrp_fmt_unit_types_t UnitTypesFMA = '{
+    ADDMUL  : fp32_fma,
+    default : fp32_off
+};
+localparam opgrp_fmt_unit_types_t UnitTypesDIV = '{
+    DIVSQRT : fp32_div,
+    default : fp32_off
 };
 
-opgrp_fmt_unit_types_t UnitTypesDIV = '{
-      DIVSQRT : fp32_div,   // <— only divider enabled
-      default : fp32_off
+//---------------------------------------------------------------------
+// PIPE REG counts: pull each inner '{…} out first
+//---------------------------------------------------------------------
+
+// inner pattern for FMA
+localparam fmt_unsigned_t PipeRegsFMA_inner    = '{ FP32: 2, default: 0 };
+// inner default
+localparam fmt_unsigned_t PipeRegs_default_inner = '{ default: 0 };
+
+// now the outer struct is just names
+localparam opgrp_fmt_unsigned_t PipeRegsFMA = '{
+    ADDMUL  : PipeRegsFMA_inner,
+    default : PipeRegs_default_inner
 };
 
-// 2-cycle pipeline in each FMA slice, 4-cycle divider (good balance between area and timing)
-opgrp_fmt_unsigned_t PipeRegsFMA = '{
-      ADDMUL  : '{FP32: 2, default: 0},
-      default : '{default: 0}
+// same for DIV
+localparam fmt_unsigned_t PipeRegsDIV_inner    = '{ FP32: 4, default: 0 };
+localparam opgrp_fmt_unsigned_t PipeRegsDIV = '{
+    DIVSQRT : PipeRegsDIV_inner,
+    default : PipeRegs_default_inner
 };
-opgrp_fmt_unsigned_t PipeRegsDIV = '{
-      DIVSQRT : '{FP32: 4, default: 0},
-      default : '{default: 0}
-};
+
+//---------------------------------------------------------------------
+// top‐level implementation binding
+//---------------------------------------------------------------------
 
 localparam pipe_config_t PIPECFG = DISTRIBUTED;
 
 localparam fpu_implementation_t ImplFMA = '{
-      PipeRegs   : PipeRegsFMA,
-      UnitTypes  : UnitTypesFMA,
-      PipeConfig : PIPECFG
+    PipeRegs   : PipeRegsFMA,
+    UnitTypes  : UnitTypesFMA,
+    PipeConfig : PIPECFG
 };
 
 localparam fpu_implementation_t ImplDIV = '{
-      PipeRegs   : PipeRegsDIV,
-      UnitTypes  : UnitTypesDIV,
-      PipeConfig : PIPECFG
+    PipeRegs   : PipeRegsDIV,
+    UnitTypes  : UnitTypesDIV,
+    PipeConfig : PIPECFG
 };
 
-typedef logic [4:0] tag_t;
 
 module plane_ray_int
 #(
