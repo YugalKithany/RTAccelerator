@@ -74,10 +74,6 @@ RTLSRC := $(filter-out $(RTLSRC_HOME)/rtl/riscv_register_file_latch.sv,\
            $(shell find $(PWD)/fpnew -type f -name '*.sv' \
                    ! -path "$(PWD)/fpnew/src/common_cells/test/*"))
 
-# $(shell find $(PWD)/fpnew -type f -name '*.sv') 
-# $(shell find $(PWD)/fpnew -type f -name '*.svh') 
-
-
 # TODO: clean this up
 RTLSRC_VLOG_TB_TOP	:= $(basename $(notdir $(RTLSRC_TB_TOP)))
 RTLSRC_VOPT_TB_TOP	:= $(addsuffix _vopt, $(RTLSRC_VLOG_TB_TOP))
@@ -213,18 +209,6 @@ tb-clean:
 # We link with our custom crt0.s and syscalls.c against newlib so that we can
 # use the c standard library
 
-# PKG_SRCS  := $(PWD)/../pkg/types.sv
-# HDL_SRCS  := $(shell find $(PWD)/../hdl -name '*.sv')
-# COMM_HVL  := $(shell find $(PWD)/../hvl/common -name '*.sv' -o -name '*.v')
-# VCS_HVL   := $(COMM_HVL) $(shell find $(PWD)/../hvl/vcs -name '*.sv' -o -name '*.v')
-# VER_HVL   := $(COMM_HVL) $(shell find $(PWD)/../hvl/verilator -name '*.sv' -o -name '*.v')
-# SRAM_SRCS := $(shell find $(PWD)/../sram/output -name '*.v')
-# HDRS      := $(shell find $(PWD)/../hvl -name '*.svh') $(PWD)/../hvl/common/rvfi_reference.json
-# DW_IP     := $(shell python3 $(PWD)/../bin/get_options.py dw_ip)
-# VCS_SRCS  := $(PKG_SRCS) $(HDL_SRCS) $(VCS_HVL) $(SRAM_SRCS) $(DW_IP)
-# VER_SRCS  := $(PKG_SRCS) $(HDL_SRCS) $(VER_HVL) $(SRAM_SRCS) $(DW_IP)
-# VER_EX    := $(PWD)/../hvl/verilator/verilator_harness.cpp
-
 RISCV_CONFIG = -march=rv32imf_zicsr -mabi=ilp32
 
 custom/hello_world.elf: custom/hello_world.c
@@ -261,6 +245,25 @@ custom-veri-run: verilate custom/hello_world.hex
 	time ./testbench_verilator $(VERI_FLAGS) \
 		"+firmware=custom/hello_world.hex"
 
+# -------------------------------
+# Added for tb_plane_ray_int
+# -------------------------------
+.PHONY: tb-plane-ray-verilate
+tb-plane-ray-verilate: $(RTLSRC_VERI_TB) $(RTLSRC_PKG) $(RTLSRC)
+	$(VERILATOR) --cc --sv --exe --trace -Wall\
+		$(VERI_TRACE) \
+		--Wno-lint --Wno-UNOPTFLAT --Wno-COMBDLY --Wno-ENUMVALUE --Wno-WIDTHCONCAT --Wno-BLKANDNBLK \
+		--Wno-MODDUP +incdir+$(RTLSRC_INCDIR) --top-module \
+		tb_plane_ray_int $(RTLSRC_VERI_TB) $(RTLSRC_PKG) $(RTLSRC) \
+		tb_top_verilator.cpp --Mdir $(VERI_DIR) \
+		-CFLAGS "-std=gnu++11 $(VERI_CFLAGS)" \
+		$(VERI_COMPILE_FLAGS)
+	$(MAKE) -C $(VERI_DIR) -f Vtb_top_verilator.mk
+	cp $(VERI_DIR)/Vtb_top_verilator testbench_verilator
+
+.PHONY: tb-plane-ray-run
+tb-plane-ray-run: tb-plane-ray-verilate
+	./tb_plane_ray_simv
 
 
 # compile and dump picorv firmware

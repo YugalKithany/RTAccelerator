@@ -1020,7 +1020,8 @@ module riscv_id_stage
       .SHARED_INT_DIV      ( SHARED_INT_DIV       ),
       .SHARED_FP_DIVSQRT   ( SHARED_FP_DIVSQRT    ),
       .WAPUTYPE            ( WAPUTYPE             ),
-      .APU_WOP_CPU         ( APU_WOP_CPU          )
+      .APU_WOP_CPU         ( APU_WOP_CPU          ),
+      .PLANE_RAY_INT       ( PLANE_RAY_INT        )
       )
   decoder_i
   (

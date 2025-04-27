@@ -61,11 +61,11 @@ localparam fpu_implementation_t ImplDIV = '{
 
 typedef logic [4:0] tag_t;
 
-module triangle_vector_int
+module plane_ray_int
 #(
     parameter FP_DIVSQRT = 1,
     parameter NUM_FMAS = 6,
-    parameter NUM_FPRTI_REGS = 15,
+    parameter NUM_FPRTI_REGS = 16,
     parameter TAG_W = $bits(tag_t)
 )
 (
@@ -80,8 +80,6 @@ module triangle_vector_int
 );
 
 localparam NUM_DIMENSIONS = 3;
-
-localparam int NUM_FPRTI_REGS = 16;
 
 //Sample inputs with local registers (unkown if CPU will hold them throughout computation)
 logic [31:0] p0 [NUM_DIMENSIONS];
@@ -165,7 +163,7 @@ logic proceed;
 always_ff @(posedge clk) begin : transition_exec_save_outs
     if(!rst_n) begin
         state <= IDLE;
-        for(int = 0; i < NUM_DIMENSIONS; i++) begin
+        for(int i = 0; i < NUM_DIMENSIONS; i++) begin
             AB <= '0;
             AC <= '0;
             PR <= '0;
@@ -176,7 +174,7 @@ always_ff @(posedge clk) begin : transition_exec_save_outs
         
         unique case (state)
             PREP_VDIFF_1: begin
-                for(int = 0; i < NUM_FMAS; i++) begin
+                for(int i = 0; i < NUM_FMAS; i++) begin
                     if(fma_out_valid[i]) begin
                         if(i < 3) AB[i] <= fma_results[i];
                         else AC[i - 3] <= fma_results[i];
@@ -184,7 +182,7 @@ always_ff @(posedge clk) begin : transition_exec_save_outs
                 end
             end
 
-            default:
+            default: ;
         endcase
     end
 end
@@ -208,15 +206,13 @@ always_comb begin : transitions
             end
         end
         PREP_VDIFF_1: begin
-            fma_op = fpnew_pkg::ADD
-            fma_mod = 1'b0;
             for (int i = 0; i < NUM_FMAS; i++) begin
-                fma_opp[i] = fpnew_pkg::ADD;
+                fma_op[i] = fpnew_pkg::ADD;
                 fma_mod[i] = 1'b1;
                 fma_in_valid[i] = 1'b1;
             end
 
-            for(int = 0; i < NUM_DIMENSIONS; i++) begin
+            for(int i = 0; i < NUM_DIMENSIONS; i++) begin
                 srcA_i[i] = p2[i];
                 srcB_i[i] = p0[i];
 
