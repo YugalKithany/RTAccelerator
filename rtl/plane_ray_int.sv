@@ -64,32 +64,47 @@ typedef logic [4:0] tag_t;
 module triangle_vector_int
 #(
     parameter FP_DIVSQRT = 1,
+    parameter NUM_FMAS = 6,
+    parameter NUM_FPRTI_REGS = 15,
     parameter TAG_W = $bits(tag_t)
 )
 (
     input  logic                     clk,
     input  logic                     rst_n,
 
-    input  logic [31:0]              fprti_regs_i [15],
+    input  logic [31:0]              fprti_regs_i [NUM_FPRTI_REGS],
     input  logic                     input_valid_i,
     
     output logic [31:0]              return_o,
     output logic                     output_valid_o
 );
 
+localparam NUM_DIMENSIONS = 3;
+
+localparam int NUM_FPRTI_REGS = 16;
+
 //Sample inputs with local registers (unkown if CPU will hold them throughout computation)
-logic [31:0] fprti_regs [15];
+logic [31:0] p0 [NUM_DIMENSIONS];
+logic [31:0] p1 [NUM_DIMENSIONS];
+logic [31:0] p2 [NUM_DIMENSIONS];
+logic [31:0] r0 [NUM_DIMENSIONS];
+logic [31:0] rd [NUM_DIMENSIONS];
+
 always_ff @(posedge clk) begin
-    if(!rst_n) begin
-        for(int i = 0; i < 15; i++) begin 
-            fprti_regs[i] <= '0;
+    if (!rst_n) begin
+        for (int i = 0; i < 3; i++) begin
+            p0[i] <= '0;
+            p1[i] <= '0;
+            p2[i] <= '0;
+            r0[i] <= '0;
+            rd[i] <= '0;
         end
-    end else begin
-        if(input_valid_i) begin
-            for(int i = 0; i < 15; i++) begin 
-                fprti_regs[i] <= fprti_regs_i[i];
-            end
-        end
+    end else if (input_valid_i) begin
+        p0[0] <= fprti_regs_i[0]; p0[1] <= fprti_regs_i[1]; p0[2] <= fprti_regs_i[2];
+        p1[0] <= fprti_regs_i[3]; p1[1] <= fprti_regs_i[4]; p1[2] <= fprti_regs_i[5];
+        p2[0] <= fprti_regs_i[6]; p2[1] <= fprti_regs_i[7]; p2[2] <= fprti_regs_i[8];
+        r0[0] <= fprti_regs_i[9]; r0[1] <= fprti_regs_i[10]; r0[2] <= fprti_regs_i[11];
+        rd[0] <= fprti_regs_i[12]; rd[1] <= fprti_regs_i[13]; rd[2] <= fprti_regs_i[14];
     end
 end
 
@@ -121,35 +136,94 @@ typedef enum logic [3:0] {
 
 plane_ray_state_t state, next_state;
 
-logic fma_in_valid[6];
-logic div_in_valid;
+logic [31:0] srcA_i [NUM_FMAS];
+logic [31:0] srcB_i [NUM_FMAS];
+logic [31:0] srcC_i [NUM_FMAS];
 
-logic fma_out_valid[6];
+logic fma_in_valid[NUM_FMAS];
+logic div_in_valid;
+logic fma_out_valid[NUM_FMAS];
 logic div_out_valid;
 
+logic fma_op[NUM_FMAS];
+logic fma_mod[NUM_FMAS];
 
-always_ff @(posedge clk) begin
+logic [31:0] fma_results[NUM_FMAS];
+
+logic [31:0] normal_vector          [NUM_DIMENSIONS];
+logic [31:0] intersection_pt        [NUM_DIMENSIONS];
+logic [31:0] intermediate_vector1   [NUM_DIMENSIONS];
+logic [31:0] intermediate_vector2   [NUM_DIMENSIONS]; 
+
+logic [31:0] AB   [NUM_DIMENSIONS];
+logic [31:0] AC   [NUM_DIMENSIONS];
+logic [31:0] PR   [NUM_DIMENSIONS]; 
+
+logic proceed;
+
+
+always_ff @(posedge clk) begin : transition_exec_save_outs
     if(!rst_n) begin
         state <= IDLE;
+        for(int = 0; i < NUM_DIMENSIONS; i++) begin
+            AB <= '0;
+            AC <= '0;
+            PR <= '0;
+        end
+        
     end else begin
         state <= next_state;
+        
+        unique case (state)
+            PREP_VDIFF_1: begin
+                for(int = 0; i < NUM_FMAS; i++) begin
+                    if(fma_out_valid[i]) begin
+                        if(i < 3) AB[i] <= fma_results[i];
+                        else AC[i - 3] <= fma_results[i];
+                    end 
+                end
+            end
+
+            default:
+        endcase
     end
 end
-
-logic [31:0] normal_vector [3];
-logic [31:0] intersection_pt [3];
-logic [31:0] intermediate_vector1[3];
-logic [31:0] intermediate_vector2[3]; 
-logic proceed;
 
 always_comb begin : transitions
     next_state = state;
     proceed = '0;
+    for (int i = 0; i < NUM_FMAS; i++) begin
+        srcA_i[i]  = 'x;
+        srcB_i[i]  = 'x;
+        srcC_i[i]  = 'x;
+        fma_op[i]  = 'x;
+        fma_mod[i] = 'x;
+    end
+
     unique case (state)
         IDLE: begin
-            if(input_valid_i) next_state = PREP_VDIFF_1;
+            if(input_valid_i) begin 
+                proceed = '1;
+                next_state = PREP_VDIFF_1;
+            end
         end
         PREP_VDIFF_1: begin
+            fma_op = fpnew_pkg::ADD
+            fma_mod = 1'b0;
+            for (int i = 0; i < NUM_FMAS; i++) begin
+                fma_opp[i] = fpnew_pkg::ADD;
+                fma_mod[i] = 1'b1;
+                fma_in_valid[i] = 1'b1;
+            end
+
+            for(int = 0; i < NUM_DIMENSIONS; i++) begin
+                srcA_i[i] = p2[i];
+                srcB_i[i] = p0[i];
+
+                srcA_i[i + 3] = p1[i];
+                srcB_i[i + 3] = p0[i];
+            end
+
             proceed = &fma_out_valid;
             if(proceed) next_state = PREP_VDIFF_2;
         end
@@ -198,7 +272,7 @@ end
 //---------------
 
 genvar i;
-for (i = 0; i < 6; i++) begin : FMAs
+for (i = 0; i < NUM_FMAS; i++) begin : FMAs
     fpnew_top #(
         .Features      (Features),
         .Implementation(ImplFMA),
@@ -207,20 +281,20 @@ for (i = 0; i < 6; i++) begin : FMAs
         .clk_i     (clk_i),
         .rst_ni    (rst_ni),
         .operands_i( /* connect op[0..2] for lane i */ ),
-        .rnd_mode_i( fpnew_pkg::RNE ),   // or drive dynamically
-        .op_i      ( fpnew_pkg::FMADD ), // ADD/MUL/FMA selected via op/op_mod
-        .op_mod_i  ( 1'b0 ),             // 0 = FMA / + , 1 = FMS / −
+        .rnd_mode_i( fpnew_pkg::RNE ),
+        .op_i      ( fma_op[i]  ), // ADD/MUL/FMA selected via op/op_mod (fpnew_pkg::FMADD)
+        .op_mod_i  ( fma_mod[i] ),             // 0 = FMA / + , 1 = FMS / −
         .src_fmt_i ( fpnew_pkg::FP32 ),
         .dst_fmt_i ( fpnew_pkg::FP32 ),
         .in_valid_i(fma_in_valid[i]),
         .in_ready_o(fma_in_ready[i]),
         .flush_i   ( 1'b0 ),
-        .result_o  ( /* lane-i result */ ),
+        .result_o  ( fma_results[i] ),
         .out_valid_o(fma_out_valid[i]),
         .out_ready_i('1),               //Our device is always ready for outputs
-        .busy_o    (/* optional */ ),
+        .busy_o    (),
 
-        .tag_i     (/* lane-i tag */ ),
+        .tag_i     (),
         .tag_o     ()
     );
 end
@@ -249,7 +323,7 @@ fpnew_top #(
     .out_ready_i('1),               //our device is always ready for outputs
     .busy_o    (),
 
-    .tag_i     (/* tag */ ),
+    .tag_i     (),
     .tag_o     ()
 );
 
