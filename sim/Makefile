@@ -1,16 +1,11 @@
 SHELL=/bin/bash -o pipefail
 .SHELLFLAGS += -e
 
-# grab every .sv and .svh in ../pkg
 PKG_ALL   := $(wildcard $(PWD)/../pkg/*.sv) $(wildcard $(PWD)/../pkg/*.svh)
-
-# put your core package first, then all the rest except that one
 PKG_SRCS  := \
 	$(PWD)/../pkg/apu_core_package.sv \
 	$(filter-out $(PWD)/../pkg/apu_core_package.sv,$(PKG_ALL))
-
-$(info PKG_SRCS: $(PKG_SRCS))
-
+	
 HDL_SRCS  := $(shell find $(PWD)/../hdl -name '*.sv')
 HVL_SRCS  := $(shell find $(PWD)/../hvl -name '*.sv' -o -name '*.v' -o -name '*.o' -o -name '*.so')
 VCS_SRCS  := $(PKG_SRCS) $(HDL_SRCS) $(HVL_SRCS)
@@ -21,12 +16,11 @@ export VCS_ARCH_OVERRIDE=linux
 VCS_FLAGS    = +incdir+$(PWD)/../hvl/vcs \
 	+incdir+$(PWD)/../pkg \
 	-licqueue -full64 -lca -sverilog -timescale=1ps/1ps -debug_acc+all -kdb \
-	-suppress=all 
-#	-suppress=LCA_FEATURES_ENABLED -msg_config=../vcs_warn.config -assert svaext \
+	-suppress=LCA_FEATURES_ENABLED -msg_config=../vcs_warn.config -assert svaext \
 
-vcs/top_tb: $(PKG_SRCS) $(HDL_SRCS) $(HVL_SRCS)
+vcs/top_tb: $(VCS_SRCS)
 	mkdir -p vcs
-	cd vcs && vcs $(PKG_SRCS) $(HDL_SRCS) $(HVL_SRCS) $(VCS_FLAGS) -l compile.log -top top_tb -o top_tb
+	cd vcs && vcs $(VCS_SRCS) $(VCS_FLAGS) -l compile.log -top top_tb -o top_tb
 	# bash check_compile_error.sh
 
 .PHONY: run_vcs_top_tb

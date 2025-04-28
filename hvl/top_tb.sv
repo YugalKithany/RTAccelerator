@@ -35,6 +35,16 @@ module top_tb;
         .output_valid_o(output_valid)
     );
 
+    initial begin
+        $fsdbDumpfile("dump.fsdb");
+        if ($test$plusargs("NO_DUMP_ALL_ECE411")) begin
+            $fsdbDumpvars(0, dut, "+all");
+            $fsdbDumpoff();
+        end else begin
+            $fsdbDumpvars(0, "+all");
+        end
+    end
+
     // Test Stimulus
     initial begin
         // Initialization
