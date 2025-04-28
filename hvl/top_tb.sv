@@ -1,4 +1,4 @@
-module tob_tb;
+module top_tb;
 
     // Clock and reset
     logic clk;
@@ -34,12 +34,6 @@ module tob_tb;
         .return_o(return_value),
         .output_valid_o(output_valid)
     );
-
-    // VCD dump
-    initial begin
-        $dumpfile("tb_plane_ray_int.vcd");
-        $dumpvars(0, tb_plane_ray_int);
-    end
 
     // Test Stimulus
     initial begin
