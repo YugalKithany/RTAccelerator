@@ -1,86 +1,7 @@
 import apu_core_package::*;
 import riscv_defines::*;
 import fpnew_pkg::*;
-
-typedef logic [4:0] tag_t;
-
-// -----------
-// FPU Config
-// -----------
-
-// --- 1) build the small masks with flat patterns
-localparam fpu_fmt_mask_t FPMASK_SINGLE = '{ 
-    FP32    : 1'b1,
-    default : 1'b0
-};
-
-// --- 2) now use that in your features struct (no nesting!)
-localparam fpu_features_t Features = '{
-    Width          : 32,            // Single Precision
-    EnableVectors  : 1'b0,
-    EnableNanBox   : 1'b0,
-    FpFmtMask      : FPMASK_SINGLE,
-    IntFmtMask     : '0
-};
-
-//---------------------------------------------------------------------
-// Implementation tables
-//---------------------------------------------------------------------
-
-// reuse your existing flat-format-unit definitions
-localparam fmt_unit_types_t fp32_fma  = '{FP32: PARALLEL, default: DISABLED};
-localparam fmt_unit_types_t fp32_off  = '{default: DISABLED};
-localparam fmt_unit_types_t fp32_div  = '{FP32: MERGED,   default: DISABLED};
-
-localparam opgrp_fmt_unit_types_t UnitTypesFMA = '{
-    ADDMUL  : fp32_fma,
-    default : fp32_off
-};
-localparam opgrp_fmt_unit_types_t UnitTypesDIV = '{
-    DIVSQRT : fp32_div,
-    default : fp32_off
-};
-
-//---------------------------------------------------------------------
-// PIPE REG counts: pull each inner '{…} out first
-//---------------------------------------------------------------------
-
-// inner pattern for FMA
-localparam fmt_unsigned_t PipeRegsFMA_inner    = '{ FP32: 2, default: 0 };
-// inner default
-localparam fmt_unsigned_t PipeRegs_default_inner = '{ default: 0 };
-
-// now the outer struct is just names
-localparam opgrp_fmt_unsigned_t PipeRegsFMA = '{
-    ADDMUL  : PipeRegsFMA_inner,
-    default : PipeRegs_default_inner
-};
-
-// same for DIV
-localparam fmt_unsigned_t PipeRegsDIV_inner    = '{ FP32: 4, default: 0 };
-localparam opgrp_fmt_unsigned_t PipeRegsDIV = '{
-    DIVSQRT : PipeRegsDIV_inner,
-    default : PipeRegs_default_inner
-};
-
-//---------------------------------------------------------------------
-// top‐level implementation binding
-//---------------------------------------------------------------------
-
-localparam pipe_config_t PIPECFG = DISTRIBUTED;
-
-localparam fpu_implementation_t ImplFMA = '{
-    PipeRegs   : PipeRegsFMA,
-    UnitTypes  : UnitTypesFMA,
-    PipeConfig : PIPECFG
-};
-
-localparam fpu_implementation_t ImplDIV = '{
-    PipeRegs   : PipeRegsDIV,
-    UnitTypes  : UnitTypesDIV,
-    PipeConfig : PIPECFG
-};
-
+import plane_ray_int_defines::*;
 
 module plane_ray_int
 #(
@@ -159,6 +80,8 @@ logic [31:0] srcA_i [NUM_FMAS];
 logic [31:0] srcB_i [NUM_FMAS];
 logic [31:0] srcC_i [NUM_FMAS];
 
+logic fma_in_ready[NUM_FMAS];
+logic div_in_ready;
 logic fma_in_valid[NUM_FMAS];
 logic div_in_valid;
 logic fma_out_valid[NUM_FMAS];
@@ -185,9 +108,9 @@ always_ff @(posedge clk) begin : transition_exec_save_outs
     if(!rst_n) begin
         state <= IDLE;
         for(int i = 0; i < NUM_DIMENSIONS; i++) begin
-            AB <= '0;
-            AC <= '0;
-            PR <= '0;
+            AB[i] <= '0;
+            AC[i] <= '0;
+            PR[i] <= '0;
         end
         
     end else begin
@@ -241,7 +164,7 @@ always_comb begin : transitions
                 srcB_i[i + 3] = p0[i];
             end
 
-            proceed = &fma_out_valid;
+            proceed = fma_out_valid[0] && fma_out_valid[1] && fma_out_valid[2] && fma_out_valid[3] && fma_out_valid[4] && fma_out_valid[5];
             if(proceed) next_state = PREP_VDIFF_2;
         end
         PREP_VDIFF_2: begin
@@ -289,6 +212,7 @@ end
 //---------------
 
 genvar i;
+generate
 for (i = 0; i < NUM_FMAS; i++) begin : FMAs
     fpnew_top #(
         .Features      (Features),
@@ -315,6 +239,7 @@ for (i = 0; i < NUM_FMAS; i++) begin : FMAs
         .tag_o     ()
     );
 end
+endgenerate 
 
 //------------------------------------------------------------------------
 // Single divider / sqrt unit

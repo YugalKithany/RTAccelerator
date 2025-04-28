@@ -58,7 +58,7 @@ VERI_CFLAGS             = -O2
 # RTL source files
 RTLSRC_HOME             := ../..
 RTLSRC_TB_PKG		:=
-RTLSRC_TB_TOP		:= tb_top.sv
+RTLSRC_TB_TOP		:= tb_plane.sv
 RTLSRC_TB		:= $(filter-out riscv_tb_pkg.sv tb_top_verilator.sv,\
 				$(wildcard *.sv))
 RTLSRC_VERI_TB          := $(filter-out tb_top.sv, $(wildcard *.sv))
@@ -66,7 +66,7 @@ RTLSRC_INCDIR           := $(RTLSRC_HOME)/rtl/include \
 							-I$(PWD)/fpnew/src/common_cells/include
 RTLSRC_PKG := $(shell find $(PWD)/fpnew -type f -name '*.sv' | grep -Ei 'pkg|defs') \
               $(addprefix $(RTLSRC_HOME)/rtl/include/,\
-              apu_core_package.sv riscv_defines.sv riscv_tracer_defines.sv)
+              apu_core_package.sv riscv_defines.sv riscv_tracer_defines.sv plane_ray_int_defines.sv)
 
 RTLSRC := $(filter-out $(RTLSRC_HOME)/rtl/riscv_register_file_latch.sv,\
            $(wildcard $(RTLSRC_HOME)/rtl/*.sv)) \
@@ -249,22 +249,21 @@ custom-veri-run: verilate custom/hello_world.hex
 # Added for tb_plane_ray_int
 # -------------------------------
 .PHONY: tb-plane-ray-verilate
-tb-plane-ray-verilate: $(RTLSRC_VERI_TB) $(RTLSRC_PKG) $(RTLSRC)
-	$(VERILATOR) --cc --sv --exe --trace -Wall\
+tb-plane-ray-verilate: $(RTLSRC_PKG) $(RTLSRC)
+	$(VERILATOR) --cc --sv --exe --trace -Wall --timing\
 		$(VERI_TRACE) \
 		--Wno-lint --Wno-UNOPTFLAT --Wno-COMBDLY --Wno-ENUMVALUE --Wno-WIDTHCONCAT --Wno-BLKANDNBLK \
-		--Wno-MODDUP +incdir+$(RTLSRC_INCDIR) --top-module \
-		tb_plane_ray_int $(RTLSRC_VERI_TB) $(RTLSRC_PKG) $(RTLSRC) \
+		--Wno-MODDUP +incdir+$(RTLSRC_INCDIR) \
+		--top-module tb_plane_ray_int $(RTLSRC_PKG) $(RTLSRC) \
 		tb_top_verilator.cpp --Mdir $(VERI_DIR) \
 		-CFLAGS "-std=gnu++11 $(VERI_CFLAGS)" \
 		$(VERI_COMPILE_FLAGS)
-	$(MAKE) -C $(VERI_DIR) -f Vtb_top_verilator.mk
-	cp $(VERI_DIR)/Vtb_top_verilator testbench_verilator
+	$(MAKE) -C $(VERI_DIR) -f Vtb_plane_ray_int.mk
+	cp $(VERI_DIR)/Vtb_plane_ray_int testbench_verilator
 
 .PHONY: tb-plane-ray-run
 tb-plane-ray-run: tb-plane-ray-verilate
 	./tb_plane_ray_simv
-
 
 # compile and dump picorv firmware
 firmware/firmware.elf: $(FIRMWARE_OBJS) $(FIRMWARE_TEST_OBJS) $(COMPLIANCE_TEST_OBJS) \

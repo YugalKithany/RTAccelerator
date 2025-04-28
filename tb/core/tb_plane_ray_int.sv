@@ -1,5 +1,3 @@
-//`timescale 1ns/1ps
-
 module tb_plane_ray_int;
 
     // Clock and reset
