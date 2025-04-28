@@ -139,7 +139,7 @@ always_ff @(posedge clk) begin : transition_exec_save_outs
                 end
             end
             //calculate P-R0, where P is any point on the plane
-            PREP_VIDFF_2: begin
+            PREP_VDIFF_2: begin
                 for(int i = 0; i < NUM_FMAS; i++) begin
                     if(fma_out_valid[i]) PR[i] <= fma_results[i];
                 end
@@ -184,20 +184,19 @@ always_ff @(posedge clk) begin : transition_exec_save_outs
 
             default: ;
         endcase
-        for (int i = 0; i < NUM_FMAS; i++) fma_inflight[i] <= fma_inflight_next[i];
     end
 end
 
 always_comb begin : transitions
     next_state = state;
-    proceed = '0;
+    proceed = 1'b1;
     for (int i = 0; i < NUM_FMAS; i++) begin
         srcA_i[i]  = 'x;
         srcB_i[i]  = 'x;
         srcC_i[i]  = 'x;
         fma_op[i]  = 'x;
         fma_mod[i] = 'x;
-        fma_inflight_next[i] = fma_inflight[i];
+        fma_in_valid[i] = 1'b0;
     end
 
 
@@ -210,54 +209,23 @@ always_comb begin : transitions
         end
         //calculate AB, AC
         PREP_VDIFF_1: begin
-            proceed = 1'b1; // Assume ready, disprove later
             for (int i = 0; i < NUM_FMAS; i++) begin
-                if (!fma_inflight[i]) begin
-                    if (!fma_in_ready[i]) proceed = 1'b0;
-                end else begin
-                    if (!fma_out_valid[i]) proceed = 1'b0;
+                if (i < 3) begin  // First 3 FMAs: AC = p2-p0
+                    srcA_i[i] = 32'h3F800000;   // 1.0
+                    srcB_i[i] = p2[i];          // p2.x, p2.y, p2.z
+                    srcC_i[i] = p0[i];          // p0.x, p0.y, p0.z
+                end else begin    // Last 3 FMAs: AB = p1-p0
+                    srcA_i[i] = 32'h3F800000;   // 1.0
+                    srcB_i[i] = p1[i-3];        // p1.x, p1.y, p1.z
+                    srcC_i[i] = p0[i-3];        // p0.x, p0.y, p0.z
                 end
+                fma_op[i] = fpnew_pkg::ADD;
+                fma_mod[i] = 1'b1;  // Subtraction mode
+                fma_in_valid[i] = 1'b1;
+                if (!fma_out_valid[i]) proceed = 1'b0;
             end
 
-            // Setup operands: 
-            // Perform (1.0 * srcB) - srcC --> (p2 or p1) - p0
-            for (int i = 0; i < NUM_DIMENSIONS; i++) begin
-                srcA_i[i]     = 32'h3F800000; // 1.0
-                srcB_i[i]     = p2[i];         // p2.x, p2.y, p2.z
-                srcC_i[i]     = p0[i];         // p0.x, p0.y, p0.z
-
-                srcA_i[i+3]   = 32'h3F800000; // 1.0
-                srcB_i[i+3]   = p1[i];         // p1.x, p1.y, p1.z
-                srcC_i[i+3]   = p0[i];         // p0.x, p0.y, p0.z
-            end
-
-            for (int i = 0; i < NUM_FMAS; i++) begin
-                fma_inflight_next[i] = fma_inflight[i];
-
-                if (!fma_inflight[i]) begin
-                    fma_in_valid[i] = 1'b1;
-                    fma_op[i]       = fpnew_pkg::ADD;
-                    fma_mod[i]      = 1'b1;
-
-                    if (fma_in_ready[i]) begin
-                        fma_inflight_next[i] = 1'b1;
-                    end else begin
-                        // proceed = 1'b0; 
-                    end
-                end else begin
-                    fma_in_valid[i] = 1'b0;
-                    if (!fma_out_valid[i]) begin
-                        // proceed = 1'b0;
-                    end
-                end
-            end
-
-            if (proceed) begin
-                next_state = PREP_VDIFF_2;
-                for (int i = 0; i < NUM_FMAS; i++) begin
-                    fma_inflight_next[i] = 1'b0;
-                end
-            end
+            if (proceed) next_state = PREP_VDIFF_2;
         end
         //calculate P-R0, where P is any point on the plane
         PREP_VDIFF_2: begin
@@ -325,11 +293,10 @@ always_comb begin : transitions
 
                 // Check readiness for both FMAs per component
                 for (int j = 0; j < 2; j++) begin
-                    int fma_idx = 2*i + j;
-                    if (!fma_inflight[fma_idx]) begin
-                        if (!fma_in_ready[fma_idx]) proceed = 1'b0;
+                    if (!fma_inflight[2*i + j]) begin
+                        if (!fma_in_ready[2*i + j]) proceed = 1'b0;
                     end else begin
-                        if (!fma_out_valid[fma_idx]) proceed = 1'b0;
+                        if (!fma_out_valid[2*i + j]) proceed = 1'b0;
                     end
                 end
             end
