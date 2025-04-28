@@ -1,8 +1,13 @@
 SHELL=/bin/bash -o pipefail
 .SHELLFLAGS += -e
 
-PKG_SRCS := $(PWD)/../pkg/apu_core_package.sv \
-            $(shell find $(PWD)/../pkg -name '*.sv' -o -name '*.svh' ! -name 'apu_core_package.sv')
+# grab every .sv and .svh in ../pkg
+PKG_ALL   := $(wildcard $(PWD)/../pkg/*.sv) $(wildcard $(PWD)/../pkg/*.svh)
+
+# put your core package first, then all the rest except that one
+PKG_SRCS  := \
+	$(PWD)/../pkg/apu_core_package.sv \
+	$(filter-out $(PWD)/../pkg/apu_core_package.sv,$(PKG_ALL))
 
 $(info PKG_SRCS: $(PKG_SRCS))
 
@@ -13,7 +18,10 @@ VCS_SRCS  := $(PKG_SRCS) $(HDL_SRCS) $(HVL_SRCS)
 TIMEOUT   ?= 10000
 
 export VCS_ARCH_OVERRIDE=linux
-VCS_FLAGS    = +incdir+$(PWD)/../hvl/vcs -licqueue -full64 -lca -sverilog -timescale=1ps/1ps -debug_acc+all -kdb -suppress=all 
+VCS_FLAGS    = +incdir+$(PWD)/../hvl/vcs \
+	+incdir+$(PWD)/../pkg \
+	-licqueue -full64 -lca -sverilog -timescale=1ps/1ps -debug_acc+all -kdb \
+	-suppress=all 
 #	-suppress=LCA_FEATURES_ENABLED -msg_config=../vcs_warn.config -assert svaext \
 
 vcs/top_tb: $(PKG_SRCS) $(HDL_SRCS) $(HVL_SRCS)
