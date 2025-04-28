@@ -52,13 +52,15 @@ typedef enum logic [3:0] {
     IDLE,
                         // All vector subtractions that do NOT depend on n
     PREP_VDIFF_1,
-    PREP_VDIFF_2,     //   – AB,  AC,  P-R0,  P-P0                 ( ≤12 adds, break into 2 stages?)     
+    PREP_VDIFF_2,     //   – AB,  AC,  P-R0                       ( ≤12 adds, break into 2 stages?)     
 
     MAKE_NORMAL,      // n = AB × AC                              ( 6 mul + 3 add )
 
     PLANE_DOTS,       // (P-R0)·n  ||  R_d·n                      ( 6 mul + 4 add )
 
     DIV_T,            // t = num/den                              ( 1 div )
+
+    INTERSECTION,     // P' = trd + r0                            ()
 
     TRI_CROSS1,       // a1 = (P2-P0) × n                         ( 6 mul + 3 add )
     TRI_CROSS2,       // a2 = (P1-P0) × n                         ( 6 mul + 3 add )
@@ -93,6 +95,8 @@ logic fma_mod[NUM_FMAS];
 logic [31:0] fma_results[NUM_FMAS];
 
 logic [31:0] normal_vector          [NUM_DIMENSIONS];
+logic [31:0] numerator_reg, denominator_reg;
+logic [31:0] t_reg;
 logic [31:0] intersection_pt        [NUM_DIMENSIONS];
 logic [31:0] intermediate_vector1   [NUM_DIMENSIONS];
 logic [31:0] intermediate_vector2   [NUM_DIMENSIONS]; 
@@ -113,7 +117,11 @@ always_ff @(posedge clk) begin : transition_exec_save_outs
             AB[i] <= '0;
             AC[i] <= '0;
             PR[i] <= '0;
+            normal_vector[i] <= '0;
         end
+        numerator_reg <= '0;
+        denominator_reg <= '0;
+        t_reg <= '0;
 
         for (int i = 0; i < NUM_FMAS; i++) fma_inflight[i] <= 1'b0;
 
@@ -121,6 +129,7 @@ always_ff @(posedge clk) begin : transition_exec_save_outs
         state <= next_state;
         
         unique case (state)
+            //calculate AB, AC
             PREP_VDIFF_1: begin
                 for(int i = 0; i < NUM_FMAS; i++) begin
                     if(fma_out_valid[i]) begin
@@ -128,6 +137,49 @@ always_ff @(posedge clk) begin : transition_exec_save_outs
                         else AC[i - 3] <= fma_results[i];
                     end 
                 end
+            end
+            //calculate P-R0, where P is any point on the plane
+            PREP_VIDFF_2: begin
+                for(int i = 0; i < NUM_FMAS; i++) begin
+                    if(fma_out_valid[i]) PR[i] <= fma_results[i];
+                end
+            end
+            //calculate the normal, which is AB cross AC
+            MAKE_NORMAL: begin
+                for (int i = 0; i < NUM_DIMENSIONS; i++) begin
+                    if (fma_out_valid[i]) normal_vector[i] <= fma_results[i];
+                end
+            end
+            PLANE_DOTS: begin
+                if (fma_out_valid[2]) numerator_reg   <= fma_results[2]; // (PR·n)
+                if (fma_out_valid[5]) denominator_reg <= fma_results[5]; // (R_d·n)
+            end
+            DIV_T: begin
+                if (div_out_valid) t_reg <= div_unit.result_o;
+            end
+            TRI_CROSS1: begin
+            
+            end
+            TRI_CROSS2: begin
+            
+            end
+            TRI_DOTS: begin
+            
+            end
+            DIV_E0: begin
+            
+            end
+            DIV_E1: begin
+            
+            end
+            DIV_E2: begin
+            
+            end
+            BARY_DOTS: begin
+            
+            end
+            BARY_FIN: begin
+            
             end
 
             default: ;
@@ -148,6 +200,7 @@ always_comb begin : transitions
         fma_inflight_next[i] = fma_inflight[i];
     end
 
+
     unique case (state)
         IDLE: begin
             if(input_valid_i) begin 
@@ -155,6 +208,7 @@ always_comb begin : transitions
                 next_state = PREP_VDIFF_1;
             end
         end
+        //calculate AB, AC
         PREP_VDIFF_1: begin
             proceed = 1'b1; // Assume ready, disprove later
             for (int i = 0; i < NUM_FMAS; i++) begin
@@ -205,18 +259,176 @@ always_comb begin : transitions
                 end
             end
         end
-
+        //calculate P-R0, where P is any point on the plane
         PREP_VDIFF_2: begin
-            if(proceed) next_state = MAKE_NORMAL;        
+            proceed = 1'b1; // Assume ready unless proven otherwise
+
+            // Configure FMAs 0-2 for PR = p0 - r0 (1.0*p0 - r0)
+            for (int i = 0; i < NUM_DIMENSIONS; i++) begin
+                srcA_i[i]     = 32'h3F800000; // 1.0
+                srcB_i[i]     = p0[i];        // p0.x, p0.y, p0.z
+                srcC_i[i]     = r0[i];        // r0.x, r0.y, r0.z
+                fma_op[i]     = fpnew_pkg::ADD;
+                fma_mod[i]    = 1'b1;         // Subtract mode
+
+                // Check if FMA is ready or has valid output
+                if (!fma_inflight[i]) begin
+                    if (!fma_in_ready[i]) proceed = 1'b0; // FMA busy
+                end else begin
+                    if (!fma_out_valid[i]) proceed = 1'b0; // Result not ready
+                end
+
+                // Update inflight status
+                fma_inflight_next[i] = fma_inflight[i];
+                if (!fma_inflight[i] && fma_in_ready[i]) begin
+                    fma_inflight_next[i] = 1'b1; // Mark inflight
+                end else if (fma_out_valid[i]) begin
+                    fma_inflight_next[i] = 1'b0; // Clear on completion
+                end
+            end
+
+            // Unused FMAs (3-5) are idle
+            for (int i = NUM_DIMENSIONS; i < NUM_FMAS; i++) begin
+                fma_in_valid[i] = 1'b0;
+                fma_inflight_next[i] = 1'b0;
+            end
+
+            // Transition to next state once all FMAs complete
+            if (proceed) begin
+                next_state = MAKE_NORMAL;
+                for (int i = 0; i < NUM_DIMENSIONS; i++) begin
+                    fma_inflight_next[i] = 1'b0; // Reset inflight
+                end
+            end
         end
         MAKE_NORMAL: begin
-        
+            proceed = 1'b1; // Assume ready unless proven otherwise
+
+            // Configure FMAs 0-5 for cross product (AB × AC)
+            // n.x = AB.y*AC.z - AB.z*AC.y
+            // n.y = AB.z*AC.x - AB.x*AC.z
+            // n.z = AB.x*AC.y - AB.y*AC.x
+            for (int i = 0; i < NUM_DIMENSIONS; i++) begin
+                // First FMA computes positive term (e.g., AB.y*AC.z for n.x)
+                srcA_i[2*i]   = (i == 0) ? AB[1] : (i == 1) ? AB[2] : AB[0]; // AB.y, AB.z, AB.x
+                srcB_i[2*i]   = (i == 0) ? AC[2] : (i == 1) ? AC[0] : AC[1]; // AC.z, AC.x, AC.y
+                srcC_i[2*i]   = '0;
+                fma_op[2*i]   = fpnew_pkg::MUL; // Multiply-only (no add)
+                fma_mod[2*i] = 1'b0;
+
+                // Second FMA computes negative term and subtracts (e.g., -AB.z*AC.y + prev_result)
+                srcA_i[2*i+1] = 32'hBF800000; // -1.0 (FP32)
+                srcB_i[2*i+1] = (i == 0) ? AB[2] : (i == 1) ? AB[0] : AB[1]; // AB.z, AB.x, AB.y
+                srcC_i[2*i+1] = (fma_out_valid[2*i]) ? fma_results[2*i] : '0; // Result from first FMA
+                fma_op[2*i+1] = fpnew_pkg::ADD;
+                fma_mod[2*i+1] = 1'b0; // Regular add (C is already positive/negative)
+
+                // Check readiness for both FMAs per component
+                for (int j = 0; j < 2; j++) begin
+                    int fma_idx = 2*i + j;
+                    if (!fma_inflight[fma_idx]) begin
+                        if (!fma_in_ready[fma_idx]) proceed = 1'b0;
+                    end else begin
+                        if (!fma_out_valid[fma_idx]) proceed = 1'b0;
+                    end
+                end
+            end
+
+            // Update inflight status
+            for (int i = 0; i < NUM_FMAS; i++) begin
+                fma_inflight_next[i] = fma_inflight[i];
+                if (!fma_inflight[i] && fma_in_ready[i]) begin
+                    fma_inflight_next[i] = 1'b1;
+                end else if (fma_out_valid[i]) begin
+                    fma_inflight_next[i] = 1'b0;
+                end
+            end
+
+            // Transition to PLANE_DOTS once all FMAs complete
+            if (proceed) begin
+                next_state = PLANE_DOTS;
+                for (int i = 0; i < NUM_FMAS; i++) fma_inflight_next[i] = 1'b0;
+            end
         end
+
         PLANE_DOTS: begin
-        
+            proceed = 1'b1; // Assume ready unless proven otherwise
+
+            //---------------------------
+            // Numerator: (PR·n) = PR.x*n.x + PR.y*n.y + PR.z*n.z
+            //---------------------------
+            // FMA0: PR.x*n.x + 0 → term0
+            srcA_i[0] = PR[0];         // PR.x
+            srcB_i[0] = normal_vector[0]; // n.x
+            srcC_i[0] = 32'h0;          // 0.0
+            fma_op[0] = fpnew_pkg::MUL; // Multiply-only (no add)
+            fma_mod[0] = 1'b0;
+
+            // FMA1: PR.y*n.y + term0 → term0 + term1
+            srcA_i[1] = PR[1];         // PR.y
+            srcB_i[1] = normal_vector[1]; // n.y
+            srcC_i[1] = fma_results[0];  // Previous result (term0)
+            fma_op[1] = fpnew_pkg::ADD;  // (A*B) + C
+            fma_mod[1] = 1'b0;
+
+            // FMA2: PR.z*n.z + (term0 + term1) → final numerator
+            srcA_i[2] = PR[2];         // PR.z
+            srcB_i[2] = normal_vector[2]; // n.z
+            srcC_i[2] = fma_results[1];  // Previous sum (term0 + term1)
+            fma_op[2] = fpnew_pkg::ADD;
+            fma_mod[2] = 1'b0;
+
+            //---------------------------
+            // Denominator: (R_d·n) = rd.x*n.x + rd.y*n.y + rd.z*n.z
+            //---------------------------
+            // FMA3: rd.x*n.x + 0 → term2
+            srcA_i[3] = rd[0];         // rd.x
+            srcB_i[3] = normal_vector[0]; // n.x
+            srcC_i[3] = 32'h0;
+            fma_op[3] = fpnew_pkg::MUL;
+            fma_mod[3] = 1'b0;
+
+            // FMA4: rd.y*n.y + term2 → term2 + term3
+            srcA_i[4] = rd[1];         // rd.y
+            srcB_i[4] = normal_vector[1]; // n.y
+            srcC_i[4] = fma_results[3];  // Previous result (term2)
+            fma_op[4] = fpnew_pkg::ADD;
+            fma_mod[4] = 1'b0;
+
+            // FMA5: rd.z*n.z + (term2 + term3) → final denominator
+            srcA_i[5] = rd[2];         // rd.z
+            srcB_i[5] = normal_vector[2]; // n.z
+            srcC_i[5] = fma_results[4];  // Previous sum (term2 + term3)
+            fma_op[5] = fpnew_pkg::ADD;
+            fma_mod[5] = 1'b0;
+
+            // Check readiness for all FMAs
+            for (int i = 0; i < NUM_FMAS; i++) begin
+                if (!fma_inflight[i]) begin
+                    if (!fma_in_ready[i]) proceed = 1'b0; // FMA busy
+                end else begin
+                    if (!fma_out_valid[i]) proceed = 1'b0; // Result pending
+                end
+            end
+
+            // Update inflight status
+            for (int i = 0; i < NUM_FMAS; i++) begin
+                fma_inflight_next[i] = fma_inflight[i];
+                if (!fma_inflight[i] && fma_in_ready[i]) begin
+                    fma_inflight_next[i] = 1'b1; // Mark inflight
+                end else if (fma_out_valid[i]) begin
+                    fma_inflight_next[i] = 1'b0; // Clear on completion
+                end
+            end
+
+            // Transition to DIV_T once all FMAs complete
+            if (proceed) begin
+                next_state = DIV_T;
+                for (int i = 0; i < NUM_FMAS; i++) fma_inflight_next[i] = 1'b0;
+            end
         end
         DIV_T: begin
-        
+
         end
         TRI_CROSS1: begin
         
