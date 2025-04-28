@@ -12,6 +12,8 @@ module top_tb;
     logic [31:0] return_value;
     logic output_valid;
 
+    int timeout_counter = 0;
+
     // Clock generation: 10ns period
     initial begin
         clk = 0;
@@ -24,6 +26,8 @@ module top_tb;
         #20;
         rst_n = 1;
     end
+
+    
 
     // DUT instantiation
     plane_ray_int dut (
@@ -118,9 +122,13 @@ module top_tb;
         #10;
         input_valid = 0;
 
-        // Wait for output
-        wait (output_valid == 1);
-        #5;
+        while (output_valid !== 1) begin
+            @(posedge clk);
+            timeout_counter++;
+            if (timeout_counter >= 100) begin
+                $fatal(1, "Timeout: output_valid not asserted within 100 cycles after input_valid.");
+            end
+        end
 
         // Display result
         $display("Return Value (Hex) = %h", return_value);
