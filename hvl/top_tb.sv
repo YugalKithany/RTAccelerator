@@ -58,17 +58,52 @@ module top_tb;
         #10;
 
         // Apply sample input
-        fprti_regs[0]  = 32'h00000000; // p0.x = 0.0
-        fprti_regs[1]  = 32'h00000000; // p0.y = 0.0
-        fprti_regs[2]  = 32'h00000000; // p0.z = 0.0
+        // fprti_regs[0]  = 32'h3f000000; // p0.x = 0.5
+        // fprti_regs[1]  = 32'h3f000000; // p0.y = 0.5
+        // fprti_regs[2]  = 32'h3f000000; // p0.z = 0.5
 
-        fprti_regs[3]  = 32'h3f800000; // p1.x = 1.0
-        fprti_regs[4]  = 32'h00000000; // p1.y = 0.0
-        fprti_regs[5]  = 32'h00000000; // p1.z = 0.0
+        // fprti_regs[3]  = 32'h3f800000; // p1.x = 1.0
+        // fprti_regs[4]  = 32'h00000000; // p1.y = 0.0
+        // fprti_regs[5]  = 32'h00000000; // p1.z = 0.0
 
-        fprti_regs[6]  = 32'h00000000; // p2.x = 0.0
-        fprti_regs[7]  = 32'h3f800000; // p2.y = 1.0
-        fprti_regs[8]  = 32'h00000000; // p2.z = 0.0
+        // fprti_regs[6]  = 32'h00000000; // p2.x = 0.0
+        // fprti_regs[7]  = 32'h3f800000; // p2.y = 1.0
+        // fprti_regs[8]  = 32'h00000000; // p2.z = 0.0
+
+        // fprti_regs[0]  = 32'h3F000000; // p0.x = 0.5
+        // fprti_regs[1]  = 32'h3F000000; // p0.y = 0.5
+        // fprti_regs[2]  = 32'h3F800000; // p0.z = 1.0
+
+        // fprti_regs[3]  = 32'h40000000; // p1.x = 2.0
+        // fprti_regs[4]  = 32'h40000000; // p1.y = 2.0
+        // fprti_regs[5]  = 32'h40200000; // p1.z = 2.5
+
+        // fprti_regs[6]  = 32'h3FC00000; // p2.x = 1.5
+        // fprti_regs[7]  = 32'h3F000000; // p2.y = 0.5
+        // fprti_regs[8]  = 32'h3F800000; // p2.z = 1.0
+
+        // p0 (Base point)
+        fprti_regs[0]  = 32'h3F000000; // p0.x = 0.5
+        fprti_regs[1]  = 32'h3F19999A; // p0.y = 0.6
+        fprti_regs[2]  = 32'h3F333333; // p0.z = 0.7
+
+        // p1 (First triangle point)
+        fprti_regs[3]  = 32'h3F800000; // p1.x = 1.0
+        fprti_regs[4]  = 32'h40000000; // p1.y = 2.0
+        fprti_regs[5]  = 32'h40400000; // p1.z = 3.0
+
+        // p2 (Second triangle point)
+        fprti_regs[6]  = 32'h40800000; // p2.x = 4.0
+        fprti_regs[7]  = 32'h40A00000; // p2.y = 5.0
+        fprti_regs[8]  = 32'h40C00000; // p2.z = 6.0
+
+        // 32'h3F800000; // p2.x - p0.x = 1.0
+        // 32'h00000000; // p2.y - p0.y = 0.0
+        // 32'h00000000; // p2.z - p0.z = 0.0
+        // 32'h3FC00000; // p1.x - p0.x = 1.5
+        // 32'h3FC00000; // p1.y - p0.y = 1.5
+        // 32'h3FC00000; // p1.z - p0.z = 1.5
+
 
         fprti_regs[9]  = 32'h3f000000; // r0.x = 0.5
         fprti_regs[10] = 32'h3f000000; // r0.y = 0.5

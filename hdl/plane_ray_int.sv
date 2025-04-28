@@ -102,6 +102,8 @@ logic [31:0] AC   [NUM_DIMENSIONS];
 logic [31:0] PR   [NUM_DIMENSIONS]; 
 
 logic proceed;
+logic fma_inflight[NUM_FMAS];
+logic fma_inflight_next[NUM_FMAS];
 
 
 always_ff @(posedge clk) begin : transition_exec_save_outs
@@ -112,7 +114,9 @@ always_ff @(posedge clk) begin : transition_exec_save_outs
             AC[i] <= '0;
             PR[i] <= '0;
         end
-        
+
+        for (int i = 0; i < NUM_FMAS; i++) fma_inflight[i] <= 1'b0;
+
     end else begin
         state <= next_state;
         
@@ -128,6 +132,7 @@ always_ff @(posedge clk) begin : transition_exec_save_outs
 
             default: ;
         endcase
+        for (int i = 0; i < NUM_FMAS; i++) fma_inflight[i] <= fma_inflight_next[i];
     end
 end
 
@@ -140,6 +145,7 @@ always_comb begin : transitions
         srcC_i[i]  = 'x;
         fma_op[i]  = 'x;
         fma_mod[i] = 'x;
+        fma_inflight_next[i] = fma_inflight[i];
     end
 
     unique case (state)
@@ -150,23 +156,56 @@ always_comb begin : transitions
             end
         end
         PREP_VDIFF_1: begin
+            proceed = 1'b1; // Assume ready, disprove later
             for (int i = 0; i < NUM_FMAS; i++) begin
-                fma_op[i] = fpnew_pkg::ADD;
-                fma_mod[i] = 1'b1;
-                fma_in_valid[i] = 1'b1;
+                if (!fma_inflight[i]) begin
+                    if (!fma_in_ready[i]) proceed = 1'b0;
+                end else begin
+                    if (!fma_out_valid[i]) proceed = 1'b0;
+                end
             end
 
-            for(int i = 0; i < NUM_DIMENSIONS; i++) begin
-                srcA_i[i] = p2[i];
-                srcB_i[i] = p0[i];
+            // Setup operands: 
+            // Perform (1.0 * srcB) - srcC --> (p2 or p1) - p0
+            for (int i = 0; i < NUM_DIMENSIONS; i++) begin
+                srcA_i[i]     = 32'h3F800000; // 1.0
+                srcB_i[i]     = p2[i];         // p2.x, p2.y, p2.z
+                srcC_i[i]     = p0[i];         // p0.x, p0.y, p0.z
 
-                srcA_i[i + 3] = p1[i];
-                srcB_i[i + 3] = p0[i];
+                srcA_i[i+3]   = 32'h3F800000; // 1.0
+                srcB_i[i+3]   = p1[i];         // p1.x, p1.y, p1.z
+                srcC_i[i+3]   = p0[i];         // p0.x, p0.y, p0.z
             end
 
-            proceed = fma_out_valid[0] && fma_out_valid[1] && fma_out_valid[2] && fma_out_valid[3] && fma_out_valid[4] && fma_out_valid[5];
-            if(proceed) next_state = PREP_VDIFF_2;
+            for (int i = 0; i < NUM_FMAS; i++) begin
+                fma_inflight_next[i] = fma_inflight[i];
+
+                if (!fma_inflight[i]) begin
+                    fma_in_valid[i] = 1'b1;
+                    fma_op[i]       = fpnew_pkg::ADD;
+                    fma_mod[i]      = 1'b1;
+
+                    if (fma_in_ready[i]) begin
+                        fma_inflight_next[i] = 1'b1;
+                    end else begin
+                        // proceed = 1'b0; 
+                    end
+                end else begin
+                    fma_in_valid[i] = 1'b0;
+                    if (!fma_out_valid[i]) begin
+                        // proceed = 1'b0;
+                    end
+                end
+            end
+
+            if (proceed) begin
+                next_state = PREP_VDIFF_2;
+                for (int i = 0; i < NUM_FMAS; i++) begin
+                    fma_inflight_next[i] = 1'b0;
+                end
+            end
         end
+
         PREP_VDIFF_2: begin
             if(proceed) next_state = MAKE_NORMAL;        
         end
@@ -219,9 +258,9 @@ for (i = 0; i < NUM_FMAS; i++) begin : FMAs
         .Implementation(ImplFMA),
         .TagType       (tag_t)
     ) fma (
-        .clk_i     (clk_i),
-        .rst_ni    (rst_ni),
-        .operands_i( /* connect op[0..2] for lane i */ ),
+        .clk_i     (clk),
+        .rst_ni    (rst_n),
+        .operands_i( {srcA_i[i], srcB_i[i], srcC_i[i]}),
         .rnd_mode_i( fpnew_pkg::RNE ),
         .op_i      ( fma_op[i]  ), // ADD/MUL/FMA selected via op/op_mod (fpnew_pkg::FMADD)
         .op_mod_i  ( fma_mod[i] ),             // 0 = FMA / + , 1 = FMS / −
@@ -249,8 +288,8 @@ fpnew_top #(
     .Implementation(ImplDIV),
     .TagType       (tag_t)
 ) div_unit (
-    .clk_i     (clk_i),
-    .rst_ni    (rst_ni),
+    .clk_i     (clk),
+    .rst_ni    (rst_n),
     .operands_i( /* dividend, divisor, dummy */ ),
     .rnd_mode_i( fpnew_pkg::RNE ),
     .op_i      ( fpnew_pkg::DIV ),
