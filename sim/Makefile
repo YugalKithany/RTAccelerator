@@ -33,7 +33,6 @@ vcs/top_tb: $(PKG_SRCS) $(HDL_SRCS) $(HVL_SRCS)
 run_vcs_top_tb: vcs/top_tb 
 	rm -f vcs/dump.fsdb
 	python3 $(PWD)/../bin/get_options.py clock
-	cp ../inputs_* vcs/
 	cd vcs && ./top_tb -l simulation.log -exitstatus -suppress=ASLR_DETECTED_INFO \
 		+TIMEOUT_ECE511=$(TIMEOUT) \
 		+CLOCK_PERIOD_PS_ECE511=$(shell python3 $(PWD)/../bin/get_options.py clock)
