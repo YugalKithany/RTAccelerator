@@ -52,6 +52,7 @@ parameter OPCODE_OP_FMSUB  = 7'h47;
 parameter OPCODE_OP_FNMSUB = 7'h4b;
 parameter OPCODE_STORE_FP  = 7'h27;
 parameter OPCODE_LOAD_FP   = 7'h07;
+parameter OPCODE_RTLS      = 7'h0c;
 
 // those opcodes are now used for PULP custom instructions
 // parameter OPCODE_CUST0     = 7'h0b
@@ -140,6 +141,7 @@ parameter ALU_SLETU = 7'b0000111;
 parameter ALU_ABS   = 7'b0010100;
 parameter ALU_CLIP  = 7'b0010110;
 parameter ALU_CLIPU = 7'b0010111;
+parameter ALU_RTLS      = 7'h0c;
 
 // Insert/extract
 parameter ALU_INS   = 7'b0101101;

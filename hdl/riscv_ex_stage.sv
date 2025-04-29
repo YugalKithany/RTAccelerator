@@ -59,6 +59,9 @@ module riscv_ex_stage
   input  logic [31:0] alu_operand_b_i,
   input  logic [31:0] alu_operand_c_i,
   input  logic        alu_en_i,
+  input  logic        rtls_en_i,
+  input  logic [4:0]  rtls_rd_i,
+  input  logic [31:0] fprti_regs_i [NUM_FPRTI_REGS],
   input  logic [ 4:0] bmask_a_i,
   input  logic [ 4:0] bmask_b_i,
   input  logic [ 1:0] imm_vec_ext_i,
@@ -249,6 +252,16 @@ module riscv_ex_stage
   assign jump_target_o     = alu_operand_c_i;
 
 
+/////////////////////////////////
+//       ____ _____   _        //
+//      |  _ \_   _| / \       //
+//      | |_) || |  / _ \      //
+//      |  _ < | | / ___ \     //
+//      |_| \_\|_|/_/   \_\    //
+/////////////////////////////////
+
+
+  // output
   ////////////////////////////
   //     _    _    _   _    //
   //    / \  | |  | | | |   //
@@ -257,7 +270,17 @@ module riscv_ex_stage
   // /_/   \_\_____\___/    //
   //                        //
   ////////////////////////////
-
+generate
+if (alu_en_i && alu_operator_i == ALU_RTLS) begin
+  plane_ray_int u_plane (
+    .clk           (clk),
+    .rst_n         (rst_n),
+    .fprti_regs_i  (fprti_regs_ex),
+    .input_valid_i (ex_ready_o),
+    .return_o      (alu_result),
+    .output_valid_o(alu_ready)
+  );
+end else begin
   riscv_alu
   #(
     .SHARED_INT_DIV( SHARED_INT_DIV ),
@@ -288,8 +311,8 @@ module riscv_ex_stage
     .ready_o             ( alu_ready       ),
     .ex_ready_i          ( ex_ready_o      )
   );
-
-
+  end
+endgenerate
   ////////////////////////////////////////////////////////////////
   //  __  __ _   _ _   _____ ___ ____  _     ___ _____ ____     //
   // |  \/  | | | | | |_   _|_ _|  _ \| |   |_ _| ____|  _ \    //
