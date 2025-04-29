@@ -126,12 +126,12 @@ module top_tb;
             @(posedge clk);
             timeout_counter++;
             if (timeout_counter >= 200) begin
-                $fatal(1, "Timeout: output_valid not asserted within 100 cycles after input_valid.");
+                $fatal(1, "Timeout: output_valid not asserted within 200 cycles after input_valid.");
             end
         end
 
         // Display result
-        $display("Return Value (Hex) = %h", return_value);
+        $display("Return Value (Hex) = %h, at cycle %d", return_value,timeout_counter);
 
         // End simulation
         #50;
