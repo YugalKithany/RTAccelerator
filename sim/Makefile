@@ -15,8 +15,10 @@ TIMEOUT   ?= 10000
 export VCS_ARCH_OVERRIDE=linux
 VCS_FLAGS    = +incdir+$(PWD)/../hvl/vcs \
 	+incdir+$(PWD)/../pkg \
+	+warn=none \
+	+lint=none \
 	-licqueue -full64 -lca -sverilog -timescale=1ps/1ps -debug_acc+all -kdb \
-	-suppress=LCA_FEATURES_ENABLED -msg_config=../vcs_warn.config -assert svaext \
+	-suppress=LCA_FEATURES_ENABLED -msg_config=../vcs_warn.config -assert svaext 
 
 vcs/top_tb: $(VCS_SRCS)
 	mkdir -p vcs

@@ -32,8 +32,17 @@ localparam fpu_implementation_t ImplDIV = '{
       PipeRegs:   '{default: 4},
       UnitTypes:  '{
                   '{default: DISABLED},   // ADDMUL
-                  '{default: PARALLEL},   // DIVSQRT
+                  '{default: MERGED  },   // DIVSQRT
                   '{default: DISABLED},   // NONCOMP
+                  '{default: DISABLED}},  // CONV
+      PipeConfig: DISTRIBUTED
+};
+localparam fpu_implementation_t ImplCMP = '{
+      PipeRegs:   '{default: 1},
+      UnitTypes:  '{
+                  '{default: DISABLED},   // ADDMUL
+                  '{default: DISABLED},   // DIVSQRT
+                  '{default: PARALLEL},   // NONCOMP
                   '{default: DISABLED}},  // CONV
       PipeConfig: DISTRIBUTED
 };

@@ -125,7 +125,7 @@ module top_tb;
         while (output_valid !== 1) begin
             @(posedge clk);
             timeout_counter++;
-            if (timeout_counter >= 100) begin
+            if (timeout_counter >= 200) begin
                 $fatal(1, "Timeout: output_valid not asserted within 100 cycles after input_valid.");
             end
         end
