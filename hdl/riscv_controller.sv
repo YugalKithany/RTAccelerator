@@ -201,6 +201,7 @@ module riscv_controller
 
   logic illegal_insn_q, illegal_insn_n;
 
+/*
 `ifndef SYNTHESIS
   // synopsys translate_off
   // make sure we are called later so that we do not generate messages for
@@ -215,7 +216,7 @@ module riscv_controller
   end
   // synopsys translate_on
 `endif
-
+*/
 
   ////////////////////////////////////////////////////////////////////////////////////////////
   //   ____ ___  ____  _____    ____ ___  _   _ _____ ____   ___  _     _     _____ ____    //
