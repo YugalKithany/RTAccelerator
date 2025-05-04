@@ -775,6 +775,8 @@ module riscv_core
     .alu_operand_a_i            ( alu_operand_a_ex             ), // from ID/EX pipe registers
     .alu_operand_b_i            ( alu_operand_b_ex             ), // from ID/EX pipe registers
     .alu_operand_c_i            ( alu_operand_c_ex             ), // from ID/EX pipe registers
+    .fprti_regs_i               ( /*TODO*/                     ), // from prev set special load
+
     .bmask_a_i                  ( bmask_a_ex                   ), // from ID/EX pipe registers
     .bmask_b_i                  ( bmask_b_ex                   ), // from ID/EX pipe registers
     .imm_vec_ext_i              ( imm_vec_ext_ex               ), // from ID/EX pipe registers

@@ -106,6 +106,9 @@ module riscv_decoder
   output logic [1:0]  mult_signed_mode_o,      // Multiplication in signed mode
   output logic [1:0]  mult_dot_signed_o,       // Dot product in signed mode
 
+  // RTA
+  // output logic        rtls_en_o;        // high for OPCODE_RTLS
+  // output logic [4:0]  rtls_rd_o;        // destination rd
   // FPU
   input  logic [C_RM-1:0]             frm_i,   // Rounding mode from float CSR
 
@@ -246,6 +249,8 @@ module riscv_decoder
     check_fprm                  = 1'b0;
     fp_op_group                 = ADDMUL;
 
+    // rtls_en_o   = 1'b0;
+    // rtls_rd_o   = '0;
     regfile_mem_we              = 1'b0;
     regfile_alu_we              = 1'b0;
     regfile_alu_waddr_sel_o     = 1'b1;
@@ -1246,6 +1251,15 @@ module riscv_decoder
       // |_|    |_|     \____/  //
       //                        //
       ////////////////////////////
+
+      OPCODE_RTLS: begin  // Compute using custom HW functional unit (plane_ray_int)
+        alu_en_o             = 1'b1;
+        alu_operator_o       = ALU_RTLS;
+        regfile_alu_we_o     = 1'b1;
+        regfile_alu_waddr_sel_o = REGC_RD;
+        regfile_alu_waddr_o  = instr_rdata_i[11:7];
+        instr_multicycle_o   = 1'b1;
+      end
 
       // floating point arithmetic
       OPCODE_OP_FP: begin
