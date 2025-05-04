@@ -155,7 +155,7 @@ always_ff @(posedge clk) begin : transition_exec_save_outs
         end
         valid_register <= '0;
 
-        return_o <= 'x;
+        return_o <= '0;
         output_valid_o <= '0;
 
     end else begin
@@ -167,7 +167,7 @@ always_ff @(posedge clk) begin : transition_exec_save_outs
         
         unique case (state)
             IDLE: begin
-                return_o <= 'x;
+                return_o <= '0;
                 output_valid_o <= 1'b0;
             end
             //calculate AB, AC

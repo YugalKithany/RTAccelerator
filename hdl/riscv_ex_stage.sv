@@ -47,7 +47,8 @@ module riscv_ex_stage
   parameter APU_NARGS_CPU    =  3,
   parameter APU_WOP_CPU      =  6,
   parameter APU_NDSFLAGS_CPU = 15,
-  parameter APU_NUSFLAGS_CPU =  5
+  parameter APU_NUSFLAGS_CPU =  5,
+  parameter NUM_FPRTI_REGS   = 16
 )
 (
   input  logic        clk,
@@ -259,9 +260,21 @@ module riscv_ex_stage
 //      |  _ < | | / ___ \     //
 //      |_| \_\|_|/_/   \_\    //
 /////////////////////////////////
+logic [31:0]    alu_result_pl, alu_result_regular;
+logic  alu_ready_pl, alu_ready_regular;
+logic [31:0] fprti_regs_ex [NUM_FPRTI_REGS];
 
 
-  // output
+// if (alu_en_i && alu_operator_i == ALU_RTLS) begin
+  plane_ray_int u_plane (
+    .clk           (clk),
+    .rst_n         (rst_n),
+    .fprti_regs_i  (fprti_regs_ex),
+    .input_valid_i (alu_en_i && alu_operator_i == ALU_RTLS),
+    .return_o      (alu_result_pl),
+    .output_valid_o(alu_ready_pl)
+  );
+
   ////////////////////////////
   //     _    _    _   _    //
   //    / \  | |  | | | |   //
@@ -270,17 +283,8 @@ module riscv_ex_stage
   // /_/   \_\_____\___/    //
   //                        //
   ////////////////////////////
-generate
-if (alu_en_i && alu_operator_i == ALU_RTLS) begin
-  plane_ray_int u_plane (
-    .clk           (clk),
-    .rst_n         (rst_n),
-    .fprti_regs_i  (fprti_regs_ex),
-    .input_valid_i (ex_ready_o),
-    .return_o      (alu_result),
-    .output_valid_o(alu_ready)
-  );
-end else begin
+
+// end else begin
   riscv_alu
   #(
     .SHARED_INT_DIV( SHARED_INT_DIV ),
@@ -305,14 +309,18 @@ end else begin
     .clpx_shift_i        ( alu_clpx_shift_i),
     .is_subrot_i         ( alu_is_subrot_i ),
 
-    .result_o            ( alu_result      ),
+    .result_o            ( alu_result_regular),
     .comparison_result_o ( alu_cmp_result  ),
 
-    .ready_o             ( alu_ready       ),
+    .ready_o             ( alu_ready_regular),
     .ex_ready_i          ( ex_ready_o      )
   );
-  end
-endgenerate
+  // end
+
+assign alu_result = (alu_en_i && alu_operator_i == ALU_RTLS)  ? alu_result_pl : alu_result_regular;
+assign alu_ready = (alu_en_i && alu_operator_i == ALU_RTLS)  ? alu_ready_pl : alu_ready_regular;
+
+
   ////////////////////////////////////////////////////////////////
   //  __  __ _   _ _   _____ ___ ____  _     ___ _____ ____     //
   // |  \/  | | | | | |_   _|_ _|  _ \| |   |_ _| ____|  _ \    //

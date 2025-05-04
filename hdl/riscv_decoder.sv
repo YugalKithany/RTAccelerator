@@ -1255,9 +1255,9 @@ module riscv_decoder
       OPCODE_RTLS: begin  // Compute using custom HW functional unit (plane_ray_int)
         alu_en_o             = 1'b1;
         alu_operator_o       = ALU_RTLS;
-        regfile_alu_we_o     = 1'b1;
+        regfile_alu_we     = 1'b1;
         regfile_alu_waddr_sel_o = REGC_RD;
-        regfile_alu_waddr_o  = instr_rdata_i[11:7];
+        //regfile_alu_waddr_o  = instr_rdata_i[11:7];
         instr_multicycle_o   = 1'b1;
       end
 
