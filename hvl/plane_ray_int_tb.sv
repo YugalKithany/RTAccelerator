@@ -1,4 +1,4 @@
-module top_tb;
+module plane_ray_int_tb;
 
     // Clock and reset
     logic clk;
