@@ -133,6 +133,11 @@ module riscv_ex_stage
   input  logic        lsu_en_i,
   input  logic [31:0] lsu_rdata_i,
 
+  input logic        flw_rtls_en_i,        // high for FLW_RTLS
+  input logic [3:0]  flw_rtls_rd_i,        // destination frpti_reg
+  output logic        flw_rtls_en_o, 
+  output logic [3:0]  flw_rtls_rd_o,
+
   // input from ID stage
   input  logic        branch_in_ex_i,
   input  logic [5:0]  regfile_alu_waddr_i,
@@ -262,15 +267,14 @@ module riscv_ex_stage
 /////////////////////////////////
 logic [31:0]    alu_result_pl, alu_result_regular;
 logic  alu_ready_pl, alu_ready_regular;
-logic [31:0] fprti_regs_ex [NUM_FPRTI_REGS];
 
 
 // if (alu_en_i && alu_operator_i == ALU_RTLS) begin
   plane_ray_int u_plane (
     .clk           (clk),
     .rst_n         (rst_n),
-    .fprti_regs_i  (fprti_regs_ex),
-    .input_valid_i (alu_en_i && alu_operator_i == ALU_RTLS),
+    .fprti_regs_i  (fprti_regs_i),
+    .input_valid_i (alu_en_i && alu_operator_i == ALU_RTLS && !alu_ready_pl),
     .return_o      (alu_result_pl),
     .output_valid_o(alu_ready_pl)
   );
@@ -567,6 +571,9 @@ assign alu_ready = (alu_en_i && alu_operator_i == ALU_RTLS)  ? alu_ready_pl : al
     end
     else
     begin
+      flw_rtls_en_o <= flw_rtls_en_i;
+      flw_rtls_rd_o <= flw_rtls_rd_i;
+
       if (ex_valid_o) // wb_ready_i is implied
       begin
         regfile_we_lsu    <= regfile_we_i & ~lsu_err_i;

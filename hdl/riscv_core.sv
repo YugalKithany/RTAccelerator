@@ -55,7 +55,8 @@ module riscv_core
   parameter APU_WOP_CPU         =  6,
   parameter APU_NDSFLAGS_CPU    = 15,
   parameter APU_NUSFLAGS_CPU    =  5,
-  parameter DM_HaltAddress      = 32'h1A110800
+  parameter DM_HaltAddress      = 32'h1A110800,
+  parameter NUM_FPRTI_REGS      = 16
 )
 (
   // Clock and Reset
@@ -124,6 +125,12 @@ module riscv_core
   input  logic [N_EXT_PERF_COUNTERS-1:0] ext_perf_counters_i
 );
 
+  logic [31:0] clk_ctr;
+  always_ff @ (posedge clk_i) begin
+    if(!rst_ni) clk_ctr <= '0;
+    else clk_ctr <= clk_ctr + 1'b1;
+  end
+
   localparam N_HWLP      = 2;
   localparam N_HWLP_BITS = $clog2(N_HWLP);
   localparam APU         = ((SHARED_DSP_MULT==1) | (SHARED_INT_DIV==1) | (FPU==1)) ? 1 : 0;
@@ -147,6 +154,15 @@ module riscv_core
   logic              trap_addr_mux;
   logic              lsu_load_err;
   logic              lsu_store_err;
+
+  logic        flw_rtls_en_o;        // high for FLW_RTLS
+  logic [3:0]  flw_rtls_rd_o;        // destination frpti_reg
+
+  logic        flw_rtls_en_o_ex;        // high for FLW_RTLS
+  logic [3:0]  flw_rtls_rd_o_ex;        // destination frpti_reg
+
+  logic        flw_rtls_en_o_ex;        // high for FLW_RTLS
+  logic [3:0]  flw_rtls_rd_o_ex;        // destination frpti_reg
 
   // ID performance counter signals
   logic        is_decoding;
@@ -205,7 +221,6 @@ module riscv_core
   logic [C_FFLAG-1:0]         fflags_csr;
   logic                       fflags_we;
 
-
   // APU
   logic                        apu_en_ex;
   logic [WAPUTYPE-1:0]         apu_type_ex;
@@ -262,8 +277,22 @@ module riscv_core
   logic        data_req_ex;
   logic        data_load_event_ex;
   logic        data_misaligned_ex;
+  logic        fprti_flag;
 
   logic [31:0] lsu_rdata;
+
+  //RTAccelerator 
+  logic [31:0] fprti_regs [NUM_FPRTI_REGS];
+  logic flw_rtls_en_o_lsu, flw_rtls_en_i_lsu;
+  logic [3:0] flw_rtls_rd_o_lsu, flw_rtls_rd_i_lsu;
+
+  always_ff @(posedge clk_i) begin
+    if(!rst_ni) begin
+      for(int i = 0; i < NUM_FPRTI_REGS; i++) fprti_regs[i] <= '0;
+    end else begin
+      if(flw_rtls_en_o_lsu) fprti_regs[flw_rtls_rd_o_lsu] <= lsu_rdata;
+    end
+  end
 
   // stall control
   logic        halt_if;
@@ -626,6 +655,9 @@ module riscv_core
     .regfile_alu_we_ex_o          ( regfile_alu_we_ex    ),
     .regfile_alu_waddr_ex_o       ( regfile_alu_waddr_ex ),
 
+    .flw_rtls_en_o                  (flw_rtls_en_o),
+    .flw_rtls_rd_o                  (flw_rtls_rd_o),
+
     // MUL
     .mult_operator_ex_o           ( mult_operator_ex     ), // from ID to EX stage
     .mult_en_ex_o                 ( mult_en_ex           ), // from ID to EX stage
@@ -775,7 +807,7 @@ module riscv_core
     .alu_operand_a_i            ( alu_operand_a_ex             ), // from ID/EX pipe registers
     .alu_operand_b_i            ( alu_operand_b_ex             ), // from ID/EX pipe registers
     .alu_operand_c_i            ( alu_operand_c_ex             ), // from ID/EX pipe registers
-    .fprti_regs_i               ( /*TODO*/                     ), // from prev set special load
+    .fprti_regs_i               ( fprti_regs                   ), // from prev set special load
 
     .bmask_a_i                  ( bmask_a_ex                   ), // from ID/EX pipe registers
     .bmask_b_i                  ( bmask_b_ex                   ), // from ID/EX pipe registers
@@ -808,6 +840,12 @@ module riscv_core
     .fpu_prec_i                 ( fprec_csr                    ),
     .fpu_fflags_o               ( fflags                       ),
     .fpu_fflags_we_o            ( fflags_we                    ),
+
+    .flw_rtls_en_i                  (flw_rtls_en_o),
+    .flw_rtls_rd_i                  (flw_rtls_rd_o),
+
+    .flw_rtls_en_o                  (flw_rtls_en_i_lsu),
+    .flw_rtls_rd_o                  (flw_rtls_rd_i_lsu),
 
     // APU
     .apu_en_i                   ( apu_en_ex                    ),
@@ -913,6 +951,11 @@ module riscv_core
     .data_wdata_ex_i       ( alu_operand_c_ex   ),
     .data_reg_offset_ex_i  ( data_reg_offset_ex ),
     .data_sign_ext_ex_i    ( data_sign_ext_ex   ),  // sign extension
+
+    .flw_rtls_en_i         (flw_rtls_en_i_lsu),
+    .flw_rtls_rd_i         (flw_rtls_rd_i_lsu),
+    .flw_rtls_en_o         (flw_rtls_en_o_lsu),
+    .flw_rtls_rd_o         (flw_rtls_rd_o_lsu),
 
     .data_rdata_ex_o       ( lsu_rdata          ),
     .data_req_ex_i         ( data_req_ex        ),

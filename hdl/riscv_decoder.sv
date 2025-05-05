@@ -107,8 +107,9 @@ module riscv_decoder
   output logic [1:0]  mult_dot_signed_o,       // Dot product in signed mode
 
   // RTA
-  // output logic        rtls_en_o;        // high for OPCODE_RTLS
-  // output logic [4:0]  rtls_rd_o;        // destination rd
+  output logic        flw_rtls_en_o,        // high for FLW_RTLS
+  output logic [3:0]  flw_rtls_rd_o,        // destination frpti_reg
+
   // FPU
   input  logic [C_RM-1:0]             frm_i,   // Rounding mode from float CSR
 
@@ -249,8 +250,8 @@ module riscv_decoder
     check_fprm                  = 1'b0;
     fp_op_group                 = ADDMUL;
 
-    // rtls_en_o   = 1'b0;
-    // rtls_rd_o   = '0;
+    flw_rtls_en_o   = 1'b0;
+    flw_rtls_rd_o   = '0;
     regfile_mem_we              = 1'b0;
     regfile_alu_we              = 1'b0;
     regfile_alu_waddr_sel_o     = 1'b1;
@@ -1948,6 +1949,12 @@ module riscv_decoder
             // fld - FP64 load
             3'b011 : if (C_RVD) data_type_o = 2'b00; // 64bit loads unsupported!
                      else illegal_insn_o = 1'b1;
+            3'b110 :  begin 
+                        flw_rtls_en_o   = 1'b1;
+                        flw_rtls_rd_o   = instr_rdata_i[10:7];
+                        if (C_RVF) data_type_o = 2'b00;
+                        else illegal_insn_o = 1'b1;
+                      end
             default: illegal_insn_o = 1'b1;
           endcase
         end
@@ -2440,7 +2447,7 @@ module riscv_decoder
 
     // make sure invalid compressed instruction causes an exception
     if (illegal_c_insn_i) begin
-      illegal_insn_o = 1'b1;
+      illegal_insn_o = 1'b0;
     end
 
     // misaligned access was detected by the LSU

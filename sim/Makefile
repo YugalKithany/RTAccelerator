@@ -31,7 +31,7 @@ run_vcs_top_tb: vcs/top_tb
 	python3 $(PWD)/../bin/get_options.py clock
 	cd vcs && ./top_tb -l simulation.log -exitstatus -suppress=ASLR_DETECTED_INFO \
 		+TIMEOUT_ECE511=$(TIMEOUT) \
-		+firmware=$(PWD)/../testcode/rtls_test.hex
+		+firmware=$(PWD)/../testcode/rtls_basline.hex
 .PHONY: verdi
 verdi:
 	mkdir -p verdi
@@ -40,3 +40,4 @@ verdi:
 .PHONY: clean
 clean:
 	rm -rf bin vcs verdi
+

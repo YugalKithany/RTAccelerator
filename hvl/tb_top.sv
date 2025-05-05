@@ -16,7 +16,7 @@
 module top_tb
     #(parameter INSTR_RDATA_WIDTH = 128,
       parameter RAM_ADDR_WIDTH = 22,
-      parameter BOOT_ADDR  = 'h80);
+      parameter BOOT_ADDR  = 'h00);
 
     // comment to record execution trace
     //`define TRACE_EXECUTION
@@ -59,7 +59,7 @@ module top_tb
     // we either load the provided firmware or execute a small test program that
     // doesn't do more than an infinite loop with some I/O
     initial begin: load_prog
-        automatic logic [1023:0] firmware;
+        automatic logic [2047:0] firmware;
         automatic int prog_size = 6;
 
         if($value$plusargs("firmware=%s", firmware)) begin
@@ -133,7 +133,8 @@ module top_tb
         #(.INSTR_RDATA_WIDTH (INSTR_RDATA_WIDTH),
           .RAM_ADDR_WIDTH (RAM_ADDR_WIDTH),
           .BOOT_ADDR (BOOT_ADDR),
-          .PULP_SECURE (1))
+          .PULP_SECURE (1),
+          .FPU (1))
 
     riscv_wrapper_i
         (.clk_i          ( clk          ),

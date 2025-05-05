@@ -122,6 +122,9 @@ module riscv_id_stage
     output logic [5:0]  regfile_alu_waddr_ex_o,
     output logic        regfile_alu_we_ex_o,
 
+    output logic        flw_rtls_en_o,        // high for FLW_RTLS
+    output logic [3:0]  flw_rtls_rd_o,        // destination frpti_reg
+
     // ALU
     output logic        alu_en_ex_o,
     output logic [ALU_OP_WIDTH-1:0] alu_operator_ex_o,
@@ -1099,6 +1102,9 @@ module riscv_id_stage
     .apu_lat_o                       ( apu_lat                   ),
     .apu_flags_src_o                 ( apu_flags_src             ),
     .fp_rnd_mode_o                   ( fp_rnd_mode               ),
+
+    .flw_rtls_en_o                  (flw_rtls_en_o),
+    .flw_rtls_rd_o                  (flw_rtls_rd_o),
 
     // Register file control signals
     .regfile_mem_we_o                ( regfile_we_id             ),

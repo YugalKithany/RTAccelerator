@@ -49,6 +49,12 @@ module riscv_load_store_unit
     input  logic [1:0]   data_sign_ext_ex_i,   // sign extension                    -> from ex stage
 
     output logic [31:0]  data_rdata_ex_o,      // requested data                    -> to ex stage
+
+    input logic        flw_rtls_en_i,        // high for FLW_RTLS
+    input logic [3:0]  flw_rtls_rd_i,        // destination frpti_reg
+    output logic        flw_rtls_en_o, 
+    output logic [3:0]  flw_rtls_rd_o,
+
     input  logic         data_req_ex_i,        // data request                      -> from ex stage
     input  logic [31:0]  operand_a_ex_i,       // operand a from RF for address     -> from ex stage
     input  logic [31:0]  operand_b_ex_i,       // operand b from RF for address     -> from ex stage
@@ -313,6 +319,10 @@ module riscv_load_store_unit
     end
     else
     begin
+
+      flw_rtls_en_o <= flw_rtls_en_i;
+      flw_rtls_rd_o <= flw_rtls_rd_i;
+
       CS            <= NS;
 
       if (data_rvalid_i && (~data_we_q))
