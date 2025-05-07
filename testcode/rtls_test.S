@@ -74,21 +74,38 @@ _start:
     sw t0, 56(a0)       # Store rd.z (1.0)
 
     # Now load into FP registers
-    .word 0x00056087
-    .word 0x00056107
-    .word 0x00056187
-    .word 0x00056207
-    .word 0x00056287
-    .word 0x00056307
-    .word 0x00056387
-    .word 0x00056407
-    .word 0x00056487
-    .word 0x00056507
-    .word 0x00056587
-    .word 0x00056607
-    .word 0x00056687
-    .word 0x00056707
-    .word 0x00056787
+#    .word 0x00056087
+#    .word 0x00056107
+#    .word 0x00056187
+#    .word 0x00056207
+#    .word 0x00056287
+#    .word 0x00056307
+#    .word 0x00056387
+#    .word 0x00056407
+#    .word 0x00056487
+#    .word 0x00056507
+#    .word 0x00056587
+#    .word 0x00056607
+#    .word 0x00056687
+#    .word 0x00056707
+#    .word 0x00056787
+
+.word 0x00056087   # imm=0,   rd=x1,  rs1=x10, funct3=6, opcode=0x07
+.word 0x00456107   # imm=4,   rd=x2
+.word 0x00856187   # imm=8,   rd=x3
+.word 0x00C56207   # imm=12,  rd=x4
+.word 0x01056287   # imm=16,  rd=x5
+.word 0x01456307   # imm=20,  rd=x6
+.word 0x01856387   # imm=24,  rd=x7
+.word 0x01C56407   # imm=28,  rd=x8
+.word 0x02056487   # imm=32,  rd=x9
+.word 0x02456507   # imm=36,  rd=x10
+.word 0x02856587   # imm=40,  rd=x11
+.word 0x02C56607   # imm=44,  rd=x12
+.word 0x03056687   # imm=48,  rd=x13
+.word 0x03456707   # imm=52,  rd=x14
+.word 0x03856787   # imm=56,  rd=x15
+
 
     # Done
     nop
