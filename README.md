@@ -14,17 +14,6 @@ Ray tracing simulates light by casting rays through pixels and determining their
 
 - [Presentation Slides (PPTX)](./A%20Ray-Tracing%20Accelerator%20for%20Ray-Triangle%20Intersections.pptx.pptx)
 
-## Project Structure
-
-├── src/ # Source code for the RTL / accelerator
-
-├── test/ # Testbench and Verilator/Verdi traces
-
-├── paper.pdf # Final write-up of the project
-
-├── presentation.pptx # Final presentation
-
-└── README.md
 
 
 ## Tools Used
