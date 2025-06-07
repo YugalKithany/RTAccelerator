@@ -17,9 +17,13 @@ Ray tracing simulates light by casting rays through pixels and determining their
 ## Project Structure
 
 ├── src/ # Source code for the RTL / accelerator
+
 ├── test/ # Testbench and Verilator/Verdi traces
+
 ├── paper.pdf # Final write-up of the project
+
 ├── presentation.pptx # Final presentation
+
 └── README.md
 
 
